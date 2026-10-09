@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment files: real values never go into Git.
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local database artifacts (dumps, exported data)
+*.dump
+*.sql.gz
+*.backup
+
+# Scratch space used by hook tests and local experiments
+.tmp/
+
+# Personal Claude Code overrides (shared settings live in .claude/settings.json)
+.claude/settings.local.json
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

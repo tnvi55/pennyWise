@@ -1,0 +1,13 @@
+# Store and check out text files with LF line endings on every OS.
+# Without this, Git for Windows (core.autocrlf=true) converts to CRLF on checkout
+# and `prettier --check` (endOfLine: lf) reports every file as unformatted.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary

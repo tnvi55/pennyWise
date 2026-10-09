@@ -1,0 +1,21 @@
+{
+  "name": "pennywise",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Learning-first personal expense tracker (React, NestJS, PostgreSQL, Prisma).",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:hooks": "node --test \"scripts/hooks/*.test.mjs\""
+  },
+  "devDependencies": {
+    "prettier": "3.9.9"
+  }
+}
