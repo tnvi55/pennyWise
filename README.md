@@ -2,14 +2,14 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 0 (repository and standards). No application code yet. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 1 (backend skeleton): the API starts and serves `GET /api/v1/health` and Swagger. No database yet. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
 | Tool                            | Version                 | Needed from |
 | ------------------------------- | ----------------------- | ----------- |
-| Node.js                         | 22.12+ (see `.nvmrc`)   | Phase 0     |
-| npm                             | 10+ (bundled with Node) | Phase 0     |
+| Node.js                         | 24.9+ (see `.nvmrc`)    | Phase 0     |
+| npm                             | 11+ (bundled with Node) | Phase 0     |
 | Git                             | any recent              | Phase 0     |
 | Docker Desktop with Compose v2+ | recent stable           | Phase 2     |
 | Beekeeper Studio **or** pgAdmin | recent stable           | Phase 2     |
@@ -22,7 +22,18 @@ npm run format:check    # verify formatting
 npm run test:hooks      # test the Claude Code hook scripts
 ```
 
-Copy `.env.example` to `.env` when later phases need it. Never commit `.env`.
+Copy `.env.example` to `.env` and keep the placeholder values for local work. Never commit `.env`.
+
+## Run the API
+
+```bash
+npm run dev:api         # NestJS in watch mode on http://localhost:3000
+```
+
+- Health check: http://localhost:3000/api/v1/health returns `{"status":"ok","timestamp":"<ISO 8601 UTC time>"}`.
+- Swagger UI: http://localhost:3000/api/docs (raw OpenAPI JSON at `/api/docs-json`).
+- The server binds to `127.0.0.1` only, and CORS allows only `CORS_ORIGIN`.
+- An invalid `NODE_ENV`, `PORT` or `CORS_ORIGIN` stops startup with a list of what is wrong.
 
 ## Scripts
 
@@ -31,8 +42,14 @@ Copy `.env.example` to `.env` when later phases need it. Never commit `.env`.
 | `npm run format`       | Format the repository with Prettier                           |
 | `npm run format:check` | Fail if any file is not formatted (used in CI)                |
 | `npm run test:hooks`   | Run Node's built-in test runner on `scripts/hooks/*.test.mjs` |
+| `npm run dev:api`      | Start the API in watch mode                                   |
+| `npm run lint`         | ESLint in every workspace                                     |
+| `npm run typecheck`    | `tsc --noEmit` in every workspace                             |
+| `npm test`             | Unit tests (Jest) in every workspace                          |
+| `npm run test:e2e`     | API end-to-end tests (Jest + Supertest)                       |
+| `npm run build`        | Production build of every workspace                           |
 
-Lint, typecheck, test and build scripts will be added when the apps exist.
+Jest runs with `node --experimental-vm-modules` because NestJS 12 packages are ESM-only; see [ADR 0002](docs/adr/0002-node-24-and-jest-esm.md). The resulting `ExperimentalWarning` in test output is expected.
 
 ## Claude Code hooks
 
@@ -54,7 +71,8 @@ The project's shared settings live in [.claude/settings.json](.claude/settings.j
 ## Layout
 
 ```
-apps/          # api (NestJS) and web (React) — created in Phases 1 and 6
+apps/api/      # NestJS API (Phase 1)
+apps/web/      # React client (Phase 6, not created yet)
 docs/          # requirements, architecture, API design, progress, ADRs
 scripts/hooks/ # Claude Code hook scripts and tests
 ```
@@ -66,4 +84,5 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [API design](docs/api-design.md)
 - [Progress](docs/progress.md)
 - [ADR 0001: monorepo and architecture](docs/adr/0001-monorepo-and-architecture.md)
+- [ADR 0002: Node 24 and Jest with ESM-only NestJS](docs/adr/0002-node-24-and-jest-esm.md)
 - [Implementation plan](plan.md) and [Claude instructions](CLAUDE.md)

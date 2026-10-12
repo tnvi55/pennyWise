@@ -1,13 +1,13 @@
 # Architecture
 
-> Status: **planned**. Only repository tooling exists (Phase 0). Sections are marked as they are implemented.
+> Status: repository tooling (Phase 0) and the API skeleton (Phase 1) are implemented. Sections are marked as they are implemented.
 
 ## Repository layout
 
 ```
 .
 ├── apps/
-│   ├── api/          # NestJS server (Phase 1, planned)
+│   ├── api/          # NestJS server (Phase 1, implemented)
 │   └── web/          # React + Vite client (Phase 6, planned)
 ├── docs/             # requirements, architecture, API design, progress, ADRs
 ├── scripts/hooks/    # Claude Code hook scripts + their tests (Phase 0, implemented)
@@ -17,6 +17,25 @@
 ```
 
 npm workspaces let the root `package-lock.json` pin dependencies for both apps, and root scripts can run checks across them. See [ADR 0001](adr/0001-monorepo-and-architecture.md).
+
+## API skeleton (implemented, Phase 1)
+
+```
+apps/api/src/
+├── main.ts                  # bootstrap: create app, configureApp(), listen on 127.0.0.1
+├── app.setup.ts             # /api/v1 prefix, ValidationPipe, CORS, Swagger (shared with e2e tests)
+├── app.module.ts            # root module: ConfigModule (validated env) + feature modules
+├── config/env.validation.ts # NODE_ENV, PORT, CORS_ORIGIN checked once at startup
+├── common/dto/              # ErrorResponseDto, the documented error shape
+└── health/                  # HealthModule → HealthController → HealthService
+```
+
+- **Module:** groups a feature's controller and providers. `AppModule` imports each feature module.
+- **Controller:** maps an HTTP route to a method. `HealthController` handles `GET /api/v1/health`.
+- **Provider/service:** a class Nest creates once and injects wherever it is declared in a constructor. This is dependency injection (DI).
+- **Startup order:** `ConfigModule` validates the environment before any module starts, so a bad `.env` fails fast instead of failing on the first request.
+- **e2e tests** call the same `configureApp()` as `main.ts`, so they test the real prefix, pipes, CORS and Swagger setup.
+- **404s:** unknown routes under `/api/v1` return the JSON error shape. Paths outside the prefix get Express's default HTML 404, because Nest registers no handler there.
 
 ## Request flow (planned)
 
@@ -51,4 +70,4 @@ There is no generic repository layer or CQRS.
 - Claude Code hooks are configured in `.claude/settings.json`:
   - **PreToolUse** (`Bash` and `PowerShell` tools): `scripts/hooks/guard-shell.mjs` denies recognizable destructive commands.
   - **PostToolUse** (`Edit`, `Write` and `MultiEdit` tools): `scripts/hooks/format-file.mjs` formats the edited JS/TS file with local Prettier.
-- CI (`.github/workflows/ci.yml`) runs the format check and the hook tests.
+- CI (`.github/workflows/ci.yml`) runs `npm ci`, the format check, the hook tests, lint, typecheck, unit tests, e2e tests and build on Node from `.nvmrc`.

@@ -7,13 +7,19 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.9.0"
   },
-  "packageManager": "npm@10.9.2",
+  "packageManager": "npm@11.19.0",
   "scripts": {
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:hooks": "node --test \"scripts/hooks/*.test.mjs\""
+    "test:hooks": "node --test \"scripts/hooks/*.test.mjs\"",
+    "dev:api": "npm run start:dev -w @pennywise/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "npm run test:e2e --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
   },
   "devDependencies": {
     "prettier": "3.9.9"

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Format and hook tests
+    name: Format, lint, typecheck, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -33,3 +33,18 @@ jobs:
 
       - name: Test Claude Code hook scripts
         run: npm run test:hooks
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: API e2e tests
+        run: npm run test:e2e
+
+      - name: Build
+        run: npm run build

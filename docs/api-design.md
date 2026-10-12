@@ -1,8 +1,10 @@
 # API design
 
-> Status: **contract only**. No endpoint is implemented yet. JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
+> Status: **contract**. Only `GET /health` is implemented (Phase 1). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
 
-Base path: `/api/v1`. OpenAPI UI: `/api/docs` (Phase 1).
+Base path: `/api/v1`. OpenAPI UI: `/api/docs`; OpenAPI JSON: `/api/docs-json` (Phase 1, implemented).
+
+`GET /api/v1/health` → `200 {"status":"ok","timestamp":"2026-10-12T09:30:00.000Z"}`. `timestamp` is the server time as an ISO 8601 UTC string.
 
 ## Endpoints
 
@@ -36,6 +38,6 @@ Base path: `/api/v1`. OpenAPI UI: `/api/docs` (Phase 1).
 - **Unknown fields** in a request body are rejected. A PATCH with an empty body is rejected.
 - **Errors:** `{ statusCode, error, message }`, where `message` is a string or a string array.
   - **400:** malformed UUID or month, invalid field, unknown category in a transaction, category/type mismatch.
-  - **404:** the target resource is missing.
+  - **404:** the target resource is missing, or the route does not exist under `/api/v1`.
   - **409:** duplicate category, or deleting a category that is still referenced.
   - Raw database errors are never returned.
