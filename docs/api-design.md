@@ -1,6 +1,6 @@
 # API design
 
-> Status: **contract**. Only `GET /health` is implemented (Phase 1). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
+> Status: **contract**. Implemented: `GET /health` (Phase 1) and the four category endpoints (Phase 3). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
 
 Base path: `/api/v1`. OpenAPI UI: `/api/docs`; OpenAPI JSON: `/api/docs-json` (Phase 1, implemented).
 
@@ -40,4 +40,85 @@ Base path: `/api/v1`. OpenAPI UI: `/api/docs`; OpenAPI JSON: `/api/docs-json` (P
   - **400:** malformed UUID or month, invalid field, unknown category in a transaction, category/type mismatch.
   - **404:** the target resource is missing, or the route does not exist under `/api/v1`.
   - **409:** duplicate category, or deleting a category that is still referenced.
+  - **500:** `{ "statusCode": 500, "error": "Internal Server Error", "message": "Internal server error" }` for anything unexpected; details are logged on the server only.
   - Raw database errors are never returned.
+
+## Categories (implemented, Phase 3)
+
+A category:
+
+```json
+{
+  "id": "f28a07e4-d5ee-4071-aa0b-eec10db1605c",
+  "name": "Groceries",
+  "type": "EXPENSE",
+  "createdAt": "2026-10-13T12:14:16.173Z",
+  "updatedAt": "2026-10-13T12:14:16.173Z"
+}
+```
+
+- `type` is `INCOME` or `EXPENSE` and can never change.
+- `name` is trimmed, then must be 1–80 characters. `(name, type)` is unique and case-sensitive, so `Other` can exist once as INCOME and once as EXPENSE, and `Rent` and `rent` are different names.
+
+### `GET /api/v1/categories`
+
+Optional query: `type=INCOME|EXPENSE`. Any other query parameter → 400.
+
+`200` returns a plain array (no pagination; categories are few), sorted by `name`, then `type` (INCOME before EXPENSE), then `id`:
+
+```json
+[
+  { "id": "…", "name": "Freelance", "type": "INCOME", "createdAt": "…", "updatedAt": "…" },
+  { "id": "…", "name": "Other", "type": "INCOME", "createdAt": "…", "updatedAt": "…" },
+  { "id": "…", "name": "Other", "type": "EXPENSE", "createdAt": "…", "updatedAt": "…" }
+]
+```
+
+### `POST /api/v1/categories`
+
+```json
+{ "name": "  Groceries ", "type": "EXPENSE" }
+```
+
+`201` returns the created category, with `"name": "Groceries"`.
+
+| Case                                                         | Status | `message`                                                                                                                   |
+| ------------------------------------------------------------ | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| name missing, blank, `null`, a number, or over 80 characters | 400    | e.g. `["name should not be empty"]`, `["name must be a string"]`, `["name must be shorter than or equal to 80 characters"]` |
+| type missing or not INCOME/EXPENSE                           | 400    | `["type must be one of the following values: INCOME, EXPENSE"]`                                                             |
+| unknown field, e.g. `colour`                                 | 400    | `["property colour should not exist"]`                                                                                      |
+| same name and type already exist                             | 409    | `Category "Groceries" (EXPENSE) already exists`                                                                             |
+
+### `PATCH /api/v1/categories/:id`
+
+Renames only. The body must be exactly `{ "name": "…" }`, using the same name rules.
+
+`200` returns the updated category, with a newer `updatedAt`.
+
+| Case                                                    | Status | `message`                                                   |
+| ------------------------------------------------------- | ------ | ----------------------------------------------------------- |
+| `:id` is not a UUID                                     | 400    | `Validation failed (uuid is expected)`                      |
+| empty body `{}` or invalid name                         | 400    | e.g. `["name should not be empty", …]`                      |
+| `type` in the body (type is immutable)                  | 400    | `["property type should not exist"]`                        |
+| no category with that id                                | 404    | `Category <id> not found`                                   |
+| another category of the same type already has that name | 409    | `Another category of the same type is already named "Rent"` |
+
+### `DELETE /api/v1/categories/:id`
+
+`204` with no body.
+
+| Case                                | Status | `message`                                                            |
+| ----------------------------------- | ------ | -------------------------------------------------------------------- |
+| `:id` is not a UUID                 | 400    | `Validation failed (uuid is expected)`                               |
+| no category with that id            | 404    | `Category <id> not found`                                            |
+| transactions still use the category | 409    | `Category is used by one or more transactions and cannot be deleted` |
+
+Example error body:
+
+```json
+{
+  "statusCode": 409,
+  "error": "Conflict",
+  "message": "Category is used by one or more transactions and cannot be deleted"
+}
+```

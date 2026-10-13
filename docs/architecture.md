@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: repository tooling (Phase 0), the API skeleton (Phase 1) and the database layer (Phase 2) are implemented. Sections are marked as they are implemented.
+> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2) and the Categories API (Phase 3) are implemented. Sections are marked as they are implemented.
 
 ## Repository layout
 
@@ -28,6 +28,8 @@ apps/api/src/
 ├── app.module.ts            # root module: ConfigModule (validated env) + feature modules
 ├── config/env.validation.ts # NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL checked once at startup
 ├── common/dto/              # ErrorResponseDto, the documented error shape
+├── common/filters/          # UnhandledExceptionFilter: generic 500 in the same shape (Phase 3)
+├── categories/              # CategoriesModule → Controller → Service, DTOs (Phase 3)
 ├── prisma/                  # PrismaModule (global) + PrismaService (Phase 2)
 ├── generated/prisma/        # typed client from `prisma generate` (gitignored)
 └── health/                  # HealthModule → HealthController → HealthService
@@ -40,7 +42,32 @@ apps/api/src/
 - **e2e tests** call the same `configureApp()` as `main.ts`, so they test the real prefix, pipes, CORS and Swagger setup.
 - **404s:** unknown routes under `/api/v1` return the JSON error shape. Paths outside the prefix get Express's default HTML 404, because Nest registers no handler there.
 
-## Request flow (planned)
+## Request flow: categories (implemented, Phase 3)
+
+```
+PATCH /api/v1/categories/3f2b…   { "name": "  Food " }
+  → Express + Nest router        global prefix /api/v1 → CategoriesController.rename
+  → ParseUUIDPipe                ":id" must be a UUID            → else 400
+  → ValidationPipe               body → UpdateCategoryDto: trim name, 1–80 chars,
+                                 no unknown fields (so "type" is refused)  → else 400
+  → CategoriesController         HTTP only: passes id + DTO to the service
+  → CategoriesService            prisma.category.update(...), then maps Prisma errors:
+                                   P2025 record not found      → 404
+                                   P2002 unique (name, type)   → 409
+                                   P2003 FK RESTRICT on delete → 409
+                                   anything else               → re-thrown
+  → PrismaService → PostgreSQL   parameterized UPDATE; constraints decide
+  ← toCategoryResponse()         { id, name, type, createdAt, updatedAt } (ISO strings)
+  ← UnhandledExceptionFilter     only for unexpected errors: generic 500, details logged
+```
+
+- **The database decides conflicts.** The service doesn't first check "does this name exist?" and then insert. Two requests could pass that check at the same moment. It writes straight away and turns the constraint error into 409, so the result is correct even under concurrency.
+- **Errors keep one shape.** Nest's built-in `HttpException`s already produce `{ statusCode, error, message }`. The global filter gives unexpected failures the same shape without exposing SQL or stack traces.
+- **Tests:**
+  - Service unit tests mock `PrismaService` and check the error mapping.
+  - e2e tests send real HTTP requests through `configureApp()` to a real PostgreSQL database (`pennywise_test`), guarded by `test/test-database.ts`.
+
+## Request flow (planned for transactions)
 
 ```
 Browser (React page)
@@ -112,4 +139,4 @@ apps/api/
 - Claude Code hooks are configured in `.claude/settings.json`:
   - **PreToolUse** (`Bash` and `PowerShell` tools): `scripts/hooks/guard-shell.mjs` denies recognizable destructive commands.
   - **PostToolUse** (`Edit`, `Write` and `MultiEdit` tools): `scripts/hooks/format-file.mjs` formats the edited JS/TS file with local Prettier.
-- CI (`.github/workflows/ci.yml`) runs `npm ci` (which also runs `prisma generate`), Prisma schema validation, the format check, the hook tests, lint, typecheck, unit tests, e2e tests and build on Node from `.nvmrc`.
+- CI (`.github/workflows/ci.yml`) runs `npm ci` (which also runs `prisma generate`), Prisma schema validation, the format check, the hook tests, lint, typecheck, unit tests, e2e tests and build on Node from `.nvmrc`. A `postgres:18.6` service container gives the e2e tests a throwaway database.

@@ -1,9 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { HttpAdapterHost } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { ErrorResponseDto } from './common/dto/error-response.dto';
+import { UnhandledExceptionFilter } from './common/filters/unhandled-exception.filter';
 import type { EnvironmentVariables } from './config/env.validation';
 
 export const API_PREFIX = 'api/v1';
@@ -25,6 +27,9 @@ export function configureApp(app: INestApplication): void {
       transform: true, // turn plain JSON into DTO class instances
     }),
   );
+
+  // Unexpected errors become a generic 500 in the documented error shape.
+  app.useGlobalFilters(new UnhandledExceptionFilter(app.get(HttpAdapterHost).httpAdapter));
 
   // Only the configured frontend origin may call the API from a browser. An allow-list
   // (not a plain string) makes `cors` compare each request's Origin and omit the

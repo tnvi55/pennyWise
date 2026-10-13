@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 2 (PostgreSQL + Prisma): the database runs in Docker, the schema is managed by Prisma migrations and a repeatable seed provides sample data. No category or transaction endpoints yet. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 3 (Categories API): categories can be listed, created, renamed and deleted over HTTP, backed by PostgreSQL in Docker. Transaction and summary endpoints come next. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -79,6 +79,19 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 - The server binds to `127.0.0.1` only, and CORS allows only `CORS_ORIGIN`.
 - An invalid `NODE_ENV`, `PORT`, `CORS_ORIGIN` or `DATABASE_URL` stops startup with a list of what is wrong.
 - The API starts even while PostgreSQL is down; Prisma connects on the first database query.
+- Categories: `GET/POST /api/v1/categories`, `PATCH/DELETE /api/v1/categories/:id`. Examples are in [docs/api-design.md](docs/api-design.md#categories-implemented-phase-3); you can also try them in Swagger.
+
+## Tests
+
+```bash
+npm test             # unit tests: no database needed
+npm run test:e2e     # end-to-end tests against a real, disposable PostgreSQL test database
+```
+
+- `test:e2e` needs Docker running and **`TEST_DATABASE_URL` in your `.env`** (see `.env.example`). It points at `pennywise_test` on the same local server.
+- Before anything else, the e2e setup checks that the test URL is local, that its database name ends in `_test`, and that it isn't the `DATABASE_URL` database. Then it creates the database if needed and applies the committed migrations (`prisma migrate deploy`).
+- Each test starts from empty tables in `pennywise_test`. Your development data in `pennywise_dev` is never read or changed.
+- CI runs the same tests against its own throwaway PostgreSQL service.
 
 ## Scripts
 
@@ -91,7 +104,7 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 | `npm run lint`         | ESLint in every workspace                                     |
 | `npm run typecheck`    | `tsc --noEmit` in every workspace                             |
 | `npm test`             | Unit tests (Jest) in every workspace                          |
-| `npm run test:e2e`     | API end-to-end tests (Jest + Supertest)                       |
+| `npm run test:e2e`     | API end-to-end tests (Jest + Supertest, real test database)   |
 | `npm run build`        | Production build of every workspace                           |
 | `npm run db:migrate`   | Apply (and, after schema changes, create) Prisma migrations   |
 | `npm run db:deploy`    | Apply committed migrations only                               |

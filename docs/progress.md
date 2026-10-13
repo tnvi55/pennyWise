@@ -1,15 +1,15 @@
 # Progress
 
-| Phase | Name                     | Status                                             |
-| ----- | ------------------------ | -------------------------------------------------- |
-| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)                |
-| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green)        |
-| 2     | PostgreSQL + Prisma      | Implemented, verified (incl. GUI); awaiting commit |
-| 3     | Categories API           | Not started                                        |
-| 4     | Transactions API         | Not started                                        |
-| 5     | Summary API              | Not started                                        |
-| 6     | React frontend           | Not started                                        |
-| 7     | Production-style quality | Not started                                        |
+| Phase | Name                     | Status                                      |
+| ----- | ------------------------ | ------------------------------------------- |
+| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)         |
+| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green) |
+| 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green) |
+| 3     | Categories API           | Implemented, verified; awaiting commit      |
+| 4     | Transactions API         | Not started                                 |
+| 5     | Summary API              | Not started                                 |
+| 6     | React frontend           | Not started                                 |
+| 7     | Production-style quality | Not started                                 |
 
 ## Phase 0: repository and standards
 
@@ -161,7 +161,7 @@ The built server (`node dist/main.js`) was started with synthetic environment va
 
 ## Phase 2: PostgreSQL + Prisma
 
-Branch: `feature/postgres-prisma` (from `main` at `c215d40`). Not committed. Decisions: [ADR 0003](adr/0003-prisma-7-and-postgres-18.md).
+Branch: `feature/postgres-prisma`, committed as `d8aa3c6` and fast-forwarded into `main`. GitHub Actions run 38394601313 on `main` succeeded, including the new "Validate Prisma schema" step. Decisions: [ADR 0003](adr/0003-prisma-7-and-postgres-18.md).
 
 ### Completed scope (code)
 
@@ -236,14 +236,78 @@ Branch: `feature/postgres-prisma` (from `main` at `c215d40`). Not committed. Dec
 ### Pending manual verification
 
 - GUI check done (2026-10-13): pgAdmin 4 v9.18 connected to `127.0.0.1:5432/pennywise_dev` as `pennywise`. The expenses-by-category query for September 2026 returned the expected rows (Rent 22000.00, Groceries 6325.95, Utilities 1899.50, Eating out 1240.10, Transport 640.00).
-- CI on GitHub runs after a push to `main` or a PR, which needs your authorization.
 
 ### Known limitations
 
-- No database-backed automated tests yet. Phase 3 adds an isolated test database and runs real-Postgres e2e tests in CI.
 - The project's shell guard blocks any command whose text mentions deleting a volume, including documentation text written through a shell. Docs containing that text are written with the editor tools instead.
+
+## Phase 3: Categories API
+
+Branch: `feature/categories-api` (from `main` at `d8aa3c6`). Not committed. No new dependencies.
+
+### Completed scope
+
+- `src/categories/`:
+  - `CategoriesModule`, `CategoriesController` (HTTP only) and `CategoriesService` (rules, Prisma calls, error mapping);
+  - DTOs: create, update, list query and response. A shared `IsCategoryName()` decorator trims, then requires a string of 1–80 characters.
+- Endpoints:
+  - `GET /api/v1/categories?type=` returns a sorted array (name, type, id);
+  - `POST` → 201;
+  - `PATCH /:id` renames only; `type` is refused as an unknown field;
+  - `DELETE /:id` → 204.
+- Error mapping in the service. The database constraint decides; there are no racy pre-checks:
+  - P2002 → 409;
+  - P2003 (FK RESTRICT) → 409;
+  - P2025 → 404;
+  - anything else is re-thrown.
+- `ParseUUIDPipe` gives 400 for a malformed `:id`.
+- `UnhandledExceptionFilter` (global): unexpected errors become `500 { statusCode, error, message }` with generic text; the details are logged on the server only.
+- Swagger documents every route, with response, 400, 404 and 409 schemas.
+- Isolated test database:
+  - `test/test-database.ts`: the guard (local host, name ending in `_test`, not the `DATABASE_URL` database, no password in messages), database creation and `prisma migrate deploy`;
+  - `test/global-setup.ts` runs those once per e2e run;
+  - `test/setup-e2e-env.ts` points the API at `TEST_DATABASE_URL`;
+  - `test/db-helpers.ts` re-checks the guard, then empties the two app tables between tests;
+  - `test:e2e` uses `--runInBand`.
+- `TEST_DATABASE_URL` added to `.env.example`.
+- CI: a `postgres:18.6` service container with throwaway credentials, and `TEST_DATABASE_URL` set on the e2e step.
+- Docs: category contract with JSON examples in `api-design.md`, a README "Tests" section, and the category request flow plus error mapping in `architecture.md`.
+
+### Verification (2026-10-13, Node 24.21.0, PostgreSQL 18.6)
+
+The e2e runs used a throwaway `postgres:18.6` container on `127.0.0.1:5440`, set up like CI (`--rm`, CI-only credentials, stopped afterwards). At that point your `.env` didn't have `TEST_DATABASE_URL` yet; see the manual verification below.
+
+| Command                                             | Result                                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run format:check`                              | exit 0                                                                                                                                            |
+| `npm run test:hooks`                                | exit 0; 73 pass                                                                                                                                   |
+| `npm run lint`                                      | exit 0 (two lint errors in new test files fixed first)                                                                                            |
+| `npm run typecheck`                                 | exit 0                                                                                                                                            |
+| `npm test`                                          | exit 0; 4 suites, 42 tests (12 service, 3 filter)                                                                                                 |
+| `npm run test:e2e`                                  | exit 0; 3 suites, 60 tests (categories, test-DB guard, Phase 1 skeleton). Passed on a fresh database and again with the database already present. |
+| `npm run build`                                     | exit 0                                                                                                                                            |
+| `npm run db:validate`                               | exit 0                                                                                                                                            |
+| `npm run test:e2e` without `TEST_DATABASE_URL`      | stops in globalSetup: "TEST_DATABASE_URL is not set…"; nothing touched                                                                            |
+| `npm run test:e2e` with a database named `postgres` | stops: must end in "_test"                                                                                                                        |
+| Test DB after a run                                 | `pennywise_test` created, migration `20261012175401_init` applied, 31 inserts and 30 deletes recorded by PostgreSQL, tables empty                 |
+| Dev DB before and after every run                   | 9 categories, 15 transactions (unchanged)                                                                                                         |
+
+#### Live API check against the dev database (`node dist/main.js`, port 3001)
+
+- `GET` returned all 9 seed categories in the documented order. `?type=INCOME` returned Freelance, Other and Salary.
+- `POST "  Zz Live Check  "` → 201, with the name trimmed. The same request again → 409, `Category "Zz Live Check" (EXPENSE) already exists`.
+- `PATCH` rename → 200 with a newer `updatedAt`. `PATCH` with `type` → 400, `property type should not exist`.
+- `DELETE` of the scratch category → 204 with an empty body. The count went back to 9.
+- `DELETE` Rent (used by transactions) → 409. An unknown UUID → 404. `abc` → 400. `type: SAVINGS` → 400.
+- `/api/docs-json` lists `/api/v1/categories` and `/api/v1/categories/{id}`.
+
+### Pending manual verification
+
+- Done (2026-10-13): `TEST_DATABASE_URL` added to your `.env`. `npm run test:e2e` on your machine against local `pennywise_test`: 3 suites, 60 tests pass. The dev DB still has 9 categories and 15 transactions.
+- Optional: try the category endpoints in Swagger (`npm run dev:api`, then http://localhost:3000/api/docs).
+- CI on GitHub, including the new Postgres service, runs after a push to `main` or a PR.
 
 ### Next task
 
-1. You: authorize the commit. Proposed message: `feat(db): add PostgreSQL via docker compose, prisma schema, migration and seed`.
-2. Then Phase 3 (Categories API), when you instruct.
+1. Commit authorized. Proposed message: `feat(api): add categories CRUD with real-postgres e2e tests`.
+2. Then Phase 4 (Transactions API), when you instruct.
