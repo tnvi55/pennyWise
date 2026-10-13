@@ -4,10 +4,10 @@
 Build a learning-first personal Expense Tracker using React, Node.js, NestJS, PostgreSQL and Prisma with strict TypeScript. Follow plan.md and work only on the requested phase. MVP is single-user, local, INR-only and unauthenticated. Keep the implementation understandable.
 
 ## Start every session
-- Read plan.md, docs/progress.md and relevant architecture/API docs when present.
+- Read HANDOFF.md first, then plan.md, docs/progress.md, docs/parking-lot.md and relevant architecture/API docs.
 - Inspect Git status and existing code. Preserve user changes.
 - Summarize current phase, verified progress and next task. Do not treat planned work as completed.
-- For multi-file work use the installed Claude Code Plan Mode: explain the approach, file changes, dependencies and acceptance criteria, then wait for approval before implementation.
+- For multi-file work use the installed Claude Code Plan Mode: explain the approach, file changes, dependencies and acceptance criteria, then wait for approval before implementation. Save each approved plan unchanged to docs/plans/ (see its README).
 - Once a scope is approved, finish its routine edits and checks without repeatedly asking. Stop at the phase boundary.
 
 ## Architecture and code
@@ -64,6 +64,7 @@ Build a learning-first personal Expense Tracker using React, Node.js, NestJS, Po
 
 ## Documentation and teaching
 - Maintain docs/progress.md: phase status, completed scope, exact checks/results, pending manual verification, blockers and next task.
+- Keep HANDOFF.md current (one page) and put deferred work and ideas in docs/parking-lot.md, not in code comments.
 - Update requirements, architecture and API docs when behavior changes. Record significant decisions and tradeoffs in ADRs.
 - Keep CLAUDE.md concise; create scoped rules only when needed. Repository docs and Git are the shared source of truth.
 - Explain each major concept in simple words: what it does, why needed and how it connects to the request flow.

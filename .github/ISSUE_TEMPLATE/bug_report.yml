@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in PennyWise doesn't work as documented.
+title: '[Bug]: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use synthetic data only. Never paste real financial records, your `.env` or passwords.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Web app, API, Database / Prisma, Docker / setup, CI, Docs]
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact error message, HTTP status or screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+      description: Link the contract if there is one (docs/api-design.md, docs/demo-checklist.md).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. npm run dev:api and npm run dev:web
+        2. Open http://localhost:5173/#/transactions
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Node version (`node -v`), branch or commit.
+      placeholder: Windows 11, Chrome 141, Node 24.21.0, main @ 00b8b97
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocking (can't use the app or run the tests)
+        - High (wrong totals, data loss or a broken main flow)
+        - Medium (a feature misbehaves, with a workaround)
+        - Low (cosmetic or docs)
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Terminal output, the browser console, or the API response body. Remove anything sensitive.
+      render: text

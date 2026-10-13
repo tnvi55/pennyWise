@@ -1,0 +1,26 @@
+name: Improvement
+description: Make something that already works better (UX, performance, code quality, docs).
+title: '[Improvement]: '
+labels: [improvement]
+body:
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: better
+    attributes:
+      label: What better looks like
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters
+  - type: dropdown
+    id: who
+    attributes:
+      label: Who benefits
+      options: [Users of the app, Developers, Learners reading the code and docs, CI / maintenance]

@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** MVP complete (Phases 0–7). A browser app (dashboard, transactions, categories) talks to a NestJS API, which stores data in PostgreSQL in Docker. See [docs/progress.md](docs/progress.md).
+> **Status:** MVP complete (Phases 0–7). A browser app (dashboard, transactions, categories) talks to a NestJS API, which stores data in PostgreSQL in Docker. New here? Read **[HANDOFF.md](HANDOFF.md)** first. Phase details are in [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -182,7 +182,10 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [Requirements](docs/requirements.md)
 - [Architecture](docs/architecture.md)
 - [API design](docs/api-design.md)
+- [Start here: HANDOFF.md](HANDOFF.md)
 - [Progress](docs/progress.md)
+- [Parking lot (deferred work and ideas)](docs/parking-lot.md)
+- [Approved plans](docs/plans/README.md)
 - [Demonstration checklist](docs/demo-checklist.md)
 - [Security notes](docs/security.md)
 - [ADR 0001: monorepo and architecture](docs/adr/0001-monorepo-and-architecture.md)

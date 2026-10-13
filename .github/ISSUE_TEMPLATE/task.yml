@@ -1,0 +1,31 @@
+name: Task
+description: A piece of planned work (chore, upgrade, phase step).
+title: '[Task]: '
+labels: [task]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      description: Include the checks that must pass (format, lint, typecheck, tests, e2e, build).
+      placeholder: |
+        - ...
+        - All checks pass locally and in CI
+        - docs/progress.md updated
+    validations:
+      required: true
+  - type: textarea
+    id: depends
+    attributes:
+      label: Blocked by / depends on
+  - type: input
+    id: parking-lot
+    attributes:
+      label: Parking-lot entry (if it came from there)
+      placeholder: docs/parking-lot.md, entry dated 2026-10-13

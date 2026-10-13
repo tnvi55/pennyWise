@@ -9,7 +9,7 @@
 | 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green)                             |
 | 5     | Summary API              | Complete (commit 0736789 on main, CI green)                             |
 | 6     | React frontend           | Complete (commit 67a66bd on main, CI green); your browser check pending |
-| 7     | Production-style quality | Implemented, verified; awaiting commit                                  |
+| 7     | Production-style quality | Complete (commit 00b8b97 on main, CI green)                             |
 
 ## Phase 0: repository and standards
 
@@ -459,7 +459,7 @@ Run `npm run dev:api` and `npm run dev:web`, then open http://localhost:5173:
 
 ## Phase 7: Production-style quality gate
 
-Branch: `chore/quality-gate` (from `main` at `67a66bd`). Not committed. No new dependencies. You asked to start this phase without stopping for plan approval; the scope is plan.md §8 Phase 7 and §17.
+Branch: `chore/quality-gate`, committed as `00b8b97` and fast-forwarded into `main` (authorized). GitHub Actions run 38435216234 succeeded, including the new "Audit production dependencies" step. No new dependencies. You asked to start this phase without stopping for plan approval; the scope is plan.md §8 Phase 7 and §17.
 
 ### Completed scope
 
@@ -497,3 +497,14 @@ Branch: `chore/quality-gate` (from `main` at `67a66bd`). Not committed. No new d
 
 1. You: authorize the Phase 7 commit. Proposed message: `chore: complete quality gate with ci audit, clean-clone docs and demo checklist`.
 2. The MVP is then complete. Possible follow-ups: Playwright browser tests, the Prisma upgrade once a fixed stable release ships, and the exercises from each phase.
+
+## After the MVP: handoff, templates, parking lot (2026-10-13)
+
+Branch: `docs/handoff-and-templates`. Docs and templates only; no code or dependency changes. Adapted from the company sample repo `FiftyfiveTech/ai-assisted-project-management`. Its project-initiator chain, Odoo ticket intake and Enterprise-specific rules were reviewed and left out, because they don't fit this repo.
+
+- `HANDOFF.md`: a one-page start-here (what's built, how to run it, where things are, locked decisions, how work is done).
+- `.github/ISSUE_TEMPLATE/`: bug, feature, improvement and task forms (PennyWise fields; a reminder not to paste real financial data or `.env`), plus `config.yml` linking to HANDOFF.md. `.github/pull_request_template.md` has a summary, the checks actually run, screenshots and risks (plan.md §10).
+- `docs/parking-lot.md`: every deferred item, idea and learning exercise in one place, with a done/picked-up log.
+- `docs/plans/`: approved plans saved unchanged (README with the convention). The Phase 6 plan is the first entry; earlier plans weren't kept.
+- `CLAUDE.md`: read HANDOFF.md and the parking lot at session start; save approved plans to `docs/plans/`; keep HANDOFF.md current.
+- Note: GitHub applies an issue-form label only if it exists. `bug` and `enhancement` exist by default; `improvement` and `task` need creating once under **Issues → Labels** (optional).
