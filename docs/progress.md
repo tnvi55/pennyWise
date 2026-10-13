@@ -1,15 +1,15 @@
 # Progress
 
-| Phase | Name                     | Status                                       |
-| ----- | ------------------------ | -------------------------------------------- |
-| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)          |
-| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green)  |
-| 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green)  |
-| 3     | Categories API           | Complete (commit 39e999b on main, CI green)  |
-| 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green)  |
-| 5     | Summary API              | Complete (commit 0736789 on main, CI green)  |
-| 6     | React frontend           | Implemented, verified; browser check pending |
-| 7     | Production-style quality | Not started                                  |
+| Phase | Name                     | Status                                                                  |
+| ----- | ------------------------ | ----------------------------------------------------------------------- |
+| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)                                     |
+| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green)                             |
+| 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green)                             |
+| 3     | Categories API           | Complete (commit 39e999b on main, CI green)                             |
+| 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green)                             |
+| 5     | Summary API              | Complete (commit 0736789 on main, CI green)                             |
+| 6     | React frontend           | Complete (commit 67a66bd on main, CI green); your browser check pending |
+| 7     | Production-style quality | Implemented, verified; awaiting commit                                  |
 
 ## Phase 0: repository and standards
 
@@ -399,7 +399,7 @@ Branch: `feature/summary-api`, committed as `0736789` and fast-forwarded into `m
 
 ## Phase 6: React frontend
 
-Branch: `feature/web-frontend` (from `main` at `0736789`). Decisions: [ADR 0005](adr/0005-frontend-stack.md).
+Branch: `feature/web-frontend`, committed as `67a66bd` and fast-forwarded into `main` (authorized). GitHub Actions run 38418948238 succeeded, now also covering web lint, typecheck, tests and build. Decisions: [ADR 0005](adr/0005-frontend-stack.md).
 
 ### Completed scope
 
@@ -454,5 +454,46 @@ Run `npm run dev:api` and `npm run dev:web`, then open http://localhost:5173:
 
 ### Next task
 
-1. Commit, merge and push (authorized).
-2. Phase 7 (production-style quality gate).
+1. Done: committed, merged and pushed.
+2. Your browser check above is still open.
+
+## Phase 7: Production-style quality gate
+
+Branch: `chore/quality-gate` (from `main` at `67a66bd`). Not committed. No new dependencies. You asked to start this phase without stopping for plan approval; the scope is plan.md §8 Phase 7 and §17.
+
+### Completed scope
+
+- **CI** (`.github/workflows/ci.yml`):
+  - new step `npm audit --omit=dev --audit-level=critical`;
+  - clearer comments on the e2e step (`migrate deploy` against an isolated `*_test` database);
+  - timeout 10 → 15 minutes, since the web app is now included.
+  - Already present from earlier phases: pull-request and `main` triggers, `contents: read`, `npm ci` from the lockfile, `.nvmrc` Node, schema validation, format check, hook tests, lint, typecheck, unit and web tests, a Postgres 18.6 service with a health check, e2e tests and both builds.
+- **API hardening:** `X-Powered-By` disabled in `configureApp` (closes the Phase 1 known limitation), with a new e2e test.
+- **Docs:**
+  - README: a clean-clone quick start and a table of every environment variable;
+  - `docs/demo-checklist.md`: 23 steps covering plan.md §13's completion criteria, with expected values;
+  - `docs/security.md`: what protects the local setup, plus the known Prisma CLI advisories and why they are not fixed yet;
+  - `architecture.md`: a Mermaid system-overview diagram.
+  - ADRs already cover the architecture (0001) and decimal money (0004).
+- **Secrets:** a scan of the **entire git history** (all branches) found only placeholders and test fixtures (`change-me-local-only`, `ci-only-password`, `secret-pw`, `u:p`, `test:test`, `user:password`). The only env-like tracked file is `.env.example`.
+
+### Verification (2026-10-13)
+
+| Check                                         | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Clean clone**                               | `git clone` of GitHub `main` (`67a66bd`) into a scratch folder, plus the Phase 7 working changes. Then the README quick start: `cp .env.example .env`, `npm ci` (832 packages, Prisma client generated), `db:migrate` (applied `20261012175401_init`), `db:seed` twice (9 / 15 both times). Then `test:hooks` 73, `lint`, `typecheck`, `test` (API 152, web 77), `test:e2e` 150, `build` and `db:validate` all exit 0. A throwaway `postgres:18.6` on `127.0.0.1:5440` with the `.env.example` credentials stood in for `docker compose up`, to avoid clashing with your running `pennywise` project. Compose itself was verified in Phase 2. The clone and the container were removed afterwards. |
+| `format:check` in the clone                   | failed on 3 new Markdown files I hadn't formatted yet (the format hook only covers JS/TS); fixed with Prettier                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `npm audit --omit=dev --audit-level=critical` | exit 0 (the 4 known high findings are documented in `docs/security.md`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `npm run test:e2e` (your `pennywise_test`)    | 150 tests pass, including the new `X-Powered-By` check                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Dev DB                                        | untouched: 9 categories, 15 transactions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+
+### Pending
+
+- **Your browser check** (Phase 6 list above, or `docs/demo-checklist.md` sections B–D).
+- CI on GitHub for this branch after the push/merge, with your authorization.
+- Optional later: real-browser end-to-end tests (Playwright) would be a new dependency batch needing approval.
+
+### Next task
+
+1. You: authorize the Phase 7 commit. Proposed message: `chore: complete quality gate with ci audit, clean-clone docs and demo checklist`.
+2. The MVP is then complete. Possible follow-ups: Playwright browser tests, the Prisma upgrade once a fixed stable release ships, and the exercises from each phase.

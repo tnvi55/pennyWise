@@ -1,6 +1,36 @@
 # Architecture
 
-> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3), the Transactions API (Phase 4), the Summary API (Phase 5) and the React frontend (Phase 6) are implemented. Sections are marked as they are implemented.
+> Status: the MVP is implemented (Phases 0–7). The sections below describe each part.
+
+## System overview
+
+```mermaid
+flowchart LR
+  subgraph Browser["Browser · http://localhost:5173"]
+    UI["React views<br/>Dashboard · Transactions · Categories"]
+    RQ["TanStack Query cache<br/>+ typed fetch client + guards"]
+    UI --> RQ
+  end
+
+  subgraph API["NestJS API · 127.0.0.1:3000/api/v1"]
+    PIPE["ValidationPipe + DTOs<br/>ParseUUIDPipe"]
+    CTRL["Controllers<br/>(HTTP only)"]
+    SVC["Services<br/>(business rules, error mapping)"]
+    PRISMA["PrismaService<br/>(pg adapter)"]
+    PIPE --> CTRL --> SVC --> PRISMA
+  end
+
+  subgraph Docker["Docker · 127.0.0.1:5432"]
+    PG[("PostgreSQL 18<br/>pennywise_dev · pennywise_test<br/>volume pennywise_pgdata")]
+  end
+
+  RQ -- "JSON over HTTP (CORS: one origin)<br/>money as strings, dates as YYYY-MM-DD" --> PIPE
+  PRISMA -- "parameterized SQL" --> PG
+  GUI["pgAdmin / Beekeeper"] -. "same database" .-> PG
+  CLI["Prisma CLI<br/>migrate · seed"] -. "migrations" .-> PG
+```
+
+Read it left to right. The browser never talks to the database. Every request passes validation, a controller and a service before Prisma turns it into parameterized SQL. PostgreSQL enforces the last line of rules (types, CHECK, UNIQUE, FOREIGN KEY RESTRICT).
 
 ## Repository layout
 

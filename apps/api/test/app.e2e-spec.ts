@@ -41,6 +41,11 @@ describe('API skeleton (e2e)', () => {
       expect(time).toBeGreaterThanOrEqual(before);
       expect(time).toBeLessThanOrEqual(after);
     });
+
+    it('does not advertise the framework in an X-Powered-By header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health').expect(200);
+      expect(response.headers['x-powered-by']).toBeUndefined();
+    });
   });
 
   describe('global prefix', () => {

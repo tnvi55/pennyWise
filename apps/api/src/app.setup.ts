@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
+import type { ExpressAdapter } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { ErrorResponseDto } from './common/dto/error-response.dto';
@@ -17,6 +18,10 @@ export const DOCS_PATH = 'api/docs';
  */
 export function configureApp(app: INestApplication): void {
   const config = app.get<ConfigService<EnvironmentVariables, true>>(ConfigService);
+
+  // Don't advertise the framework ("X-Powered-By: Express") to every client.
+  const express = app.getHttpAdapter() as ExpressAdapter;
+  express.disable('x-powered-by');
 
   app.setGlobalPrefix(API_PREFIX);
 

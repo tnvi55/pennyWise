@@ -2,29 +2,49 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 6 (React frontend): the MVP runs end to end. A browser app (dashboard, transactions, categories) talks to the NestJS API, which stores data in PostgreSQL in Docker. See [docs/progress.md](docs/progress.md).
+> **Status:** MVP complete (Phases 0–7). A browser app (dashboard, transactions, categories) talks to a NestJS API, which stores data in PostgreSQL in Docker. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
-| Tool                            | Version                 | Needed from |
-| ------------------------------- | ----------------------- | ----------- |
-| Node.js                         | 24.9+ (see `.nvmrc`)    | Phase 0     |
-| npm                             | 11+ (bundled with Node) | Phase 0     |
-| Git                             | any recent              | Phase 0     |
-| Docker Desktop with Compose v2+ | recent stable           | Phase 2     |
-| Beekeeper Studio **or** pgAdmin | recent stable           | Phase 2     |
+| Tool                            | Version                                           |
+| ------------------------------- | ------------------------------------------------- |
+| Node.js                         | 24.9+ (see `.nvmrc`)                              |
+| npm                             | 11+ (bundled with Node 24)                        |
+| Git                             | any recent                                        |
+| Docker Desktop with Compose v2+ | recent stable; virtualization enabled in the BIOS |
+| Beekeeper Studio **or** pgAdmin | recent stable (optional, to look at the data)     |
 
-## Setup
+## Quick start (from a clean clone)
 
 ```bash
-npm ci                  # install exact versions from package-lock.json
-npm run format:check    # verify formatting
-npm run test:hooks      # test the Claude Code hook scripts
+git clone https://github.com/tnvi55/pennyWise.git && cd pennyWise
+cp .env.example .env     # placeholder values work for local development
+npm ci                   # exact versions from package-lock.json; also runs `prisma generate`
+docker compose up -d     # start PostgreSQL (Docker Desktop must be running)
+npm run db:migrate       # create the tables from the committed migrations
+npm run db:seed          # add synthetic sample data (safe to run again)
+npm run dev:api          # terminal 1: API on http://localhost:3000/api/v1, Swagger at /api/docs
+npm run dev:web          # terminal 2: app on http://localhost:5173
 ```
 
-Copy `.env.example` to `.env` and keep the placeholder values for local work. Never commit `.env`.
+Then open **http://localhost:5173** and choose **October 2026** on the dashboard to see the sample data. To check that everything works, follow the [demonstration checklist](docs/demo-checklist.md).
 
-`npm ci` also runs `prisma generate`, which writes the typed Prisma client to `apps/api/src/generated/prisma` (gitignored).
+`npm ci` writes the typed Prisma client to `apps/api/src/generated/prisma` (gitignored).
+
+### Environment variables (`.env`)
+
+| Variable                                            | Used by         | Example (from `.env.example`)                                         | Notes                                                                                                  |
+| --------------------------------------------------- | --------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Docker Compose  | `pennywise`, `change-me-local-only`, `pennywise_dev`                  | Used when the volume is first created.                                                                 |
+| `POSTGRES_PORT`                                     | Docker Compose  | `5432`                                                                | Host port, bound to `127.0.0.1`. Use e.g. `5433` if 5432 is taken, and change the URLs below to match. |
+| `NODE_ENV`                                          | API             | `development`                                                         | `development`, `test` or `production`.                                                                 |
+| `PORT`                                              | API             | `3000`                                                                |                                                                                                        |
+| `CORS_ORIGIN`                                       | API             | `http://localhost:5173`                                               | The one browser origin allowed to call the API.                                                        |
+| `DATABASE_URL`                                      | API, Prisma CLI | `postgresql://pennywise:…@127.0.0.1:5432/pennywise_dev?schema=public` | Same user, password and database as above.                                                             |
+| `TEST_DATABASE_URL`                                 | e2e tests       | `…/pennywise_test?schema=public`                                      | Must end in `_test`; created and emptied by the tests.                                                 |
+| `VITE_API_BASE_URL`                                 | web app         | `http://localhost:3000/api/v1`                                        | **Public**: built into browser JavaScript. Never put secrets in `VITE_*`.                              |
+
+The API refuses to start, with a list of problems, if `NODE_ENV`, `PORT`, `CORS_ORIGIN` or `DATABASE_URL` is invalid.
 
 ## Database (PostgreSQL in Docker)
 
@@ -163,6 +183,8 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [Architecture](docs/architecture.md)
 - [API design](docs/api-design.md)
 - [Progress](docs/progress.md)
+- [Demonstration checklist](docs/demo-checklist.md)
+- [Security notes](docs/security.md)
 - [ADR 0001: monorepo and architecture](docs/adr/0001-monorepo-and-architecture.md)
 - [SQL basics with PennyWise](docs/sql-basics.md)
 - [ADR 0002: Node 24 and Jest with ESM-only NestJS](docs/adr/0002-node-24-and-jest-esm.md)
