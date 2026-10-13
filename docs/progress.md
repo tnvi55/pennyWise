@@ -1,15 +1,15 @@
 # Progress
 
-| Phase | Name                     | Status                                      |
-| ----- | ------------------------ | ------------------------------------------- |
-| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)         |
-| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green) |
-| 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green) |
-| 3     | Categories API           | Complete (commit 39e999b on main, CI green) |
-| 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green) |
-| 5     | Summary API              | Implemented, verified; awaiting commit      |
-| 6     | React frontend           | Not started                                 |
-| 7     | Production-style quality | Not started                                 |
+| Phase | Name                     | Status                                       |
+| ----- | ------------------------ | -------------------------------------------- |
+| 0     | Repository and standards | Complete (commit 5e97bc8, CI green)          |
+| 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green)  |
+| 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green)  |
+| 3     | Categories API           | Complete (commit 39e999b on main, CI green)  |
+| 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green)  |
+| 5     | Summary API              | Complete (commit 0736789 on main, CI green)  |
+| 6     | React frontend           | Implemented, verified; browser check pending |
+| 7     | Production-style quality | Not started                                  |
 
 ## Phase 0: repository and standards
 
@@ -355,7 +355,7 @@ Branch: `feature/transactions-api`, committed as `6d5ae87` and fast-forwarded in
 
 ## Phase 5: Summary API
 
-Branch: `feature/summary-api` (from `main` at `6d5ae87`). Not committed. No new dependencies. With this phase the backend MVP is complete.
+Branch: `feature/summary-api`, committed as `0736789` and fast-forwarded into `main`. GitHub Actions run 38415857809 succeeded. No new dependencies. With this phase the backend MVP is complete.
 
 ### Completed scope
 
@@ -396,9 +396,63 @@ Branch: `feature/summary-api` (from `main` at `6d5ae87`). Not committed. No new 
 ### Pending manual verification
 
 - Optional: open Swagger (`npm run dev:api`, then http://localhost:3000/api/docs) and run `GET /summary` for `2026-10`.
-- CI on GitHub runs after a push to `main`, with your authorization.
+
+## Phase 6: React frontend
+
+Branch: `feature/web-frontend` (from `main` at `0736789`). Decisions: [ADR 0005](adr/0005-frontend-stack.md).
+
+### Completed scope
+
+- Dependency batch (approved, pinned exactly), in the new `apps/web` workspace:
+  - runtime: `react`/`react-dom` 19.3.0 and `@tanstack/react-query` 5.104.2;
+  - dev: `vite` 8.3.4, `@vitejs/plugin-react` 6.1.2, `tailwindcss`/`@tailwindcss/vite` 4.3.3, `vitest` 5.0.4, `jsdom` 30.1.2, Testing Library (react 16.3.3, dom 10.4.2, user-event 14.6.8, jest-dom 7.0.1), `eslint-plugin-react-hooks` 7.1.1, `eslint-plugin-react-refresh` 0.5.7 and the React 19.3.0 types;
+  - TypeScript, ESLint and typescript-eslint reuse the API's versions.
+- Typed API layer:
+  - `client.ts` (fetch, `ApiError` carrying the API's messages, network-error message);
+  - `guards.ts` (runtime checks on every response);
+  - `queries.ts` (TanStack Query hooks; mutations invalidate transactions, summary and categories as needed).
+- Views:
+  - **Dashboard:** month picker, income/expense/net cards, expense breakdown with bars;
+  - **Transactions:** add/edit form, filters (month, type, category), table, pagination, two-step delete;
+  - **Categories:** add, inline rename, two-step delete, with 409 messages shown.
+- Money stays a string in the browser. `formatInr` does Indian grouping without `Number()`. Inputs use `inputMode="decimal"`, and the client checks mirror the API rules.
+- Accessibility:
+  - labelled inputs; `aria-invalid`/`aria-describedby` errors; `role=status`/`alert` messages;
+  - `aria-current` nav; a table caption and `scope` headers;
+  - visible focus outline.
+- States: loading, empty, error with Retry, and success on every data area. Submit is disabled while pending; filters survive mutations; a filter change resets to page 1.
+- Responsive: one column on phones; a grid and a horizontally scrollable table on wider screens.
+- Wiring: root `dev:web` script. The existing `lint`/`typecheck`/`test`/`build` scripts and CI now also cover `apps/web`. Vite reads `VITE_*` from the root `.env`, and port 5173 uses `strictPort` (it matches `CORS_ORIGIN`).
+
+### Verification (2026-10-13, Node 24.21.0)
+
+| Command                         | Result                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm install`                   | 23 direct packages at the pinned versions; lockfile updated                                                                                                                                                                                                                                                                                   |
+| `npm run lint` (API + web)      | exit 0 (one Fast Refresh warning fixed by moving `describedBy` into `lib/aria.ts`)                                                                                                                                                                                                                                                            |
+| `npm run typecheck` (API + web) | exit 0                                                                                                                                                                                                                                                                                                                                        |
+| `npm test`                      | exit 0; API 152 tests; web 6 files, 77 tests: money/date helpers 40, API client 7, TransactionForm 13, TransactionsView 6, DashboardView 5, CategoriesView 6. One wrong expected value in my own money test was corrected; the code was right.                                                                                                |
+| Mutation check (web)            | removing the type filter from the category dropdown made exactly 1 test fail ("only offers categories of the selected type"); the file was restored                                                                                                                                                                                           |
+| `npm run build`                 | exit 0; web bundle 506 kB (150 kB gzipped), CSS 15 kB                                                                                                                                                                                                                                                                                         |
+| Real run                        | built API on :3001 plus `vite` on :5173. The page and modules were served, `VITE_API_BASE_URL` was injected, and CORS GET and the PATCH preflight from `http://localhost:5173` were allowed. The frontend's own guards accepted the real responses for categories, transactions (filtered and all) and summary (Sep 2026 and an empty month). |
+| `npm audit --omit=dev`          | **4 high**, all inside the `prisma` CLI tree (`deepmerge-ts` via `@prisma/config`, and `mysql2`, which this project never uses). Not from the new web packages. The only offered fix downgrades to Prisma 6 (breaking), so it's deferred to Phase 7.                                                                                          |
+
+### Pending manual verification (you, in a browser)
+
+Run `npm run dev:api` and `npm run dev:web`, then open http://localhost:5173:
+
+1. Dashboard: choose **October 2026**. Expect income ₹86,500.00, expenses ₹23,450.29, net ₹63,049.71, with Rent first in the breakdown.
+2. Transactions: set the month to October 2026, then filter by type and by category. Add an expense, edit it, then delete it (two clicks). The dashboard totals return to the values above.
+3. Try amount `12.345` or `0`: you should see a field error and nothing saved.
+4. Categories: add one, rename it, and delete it. Try deleting **Rent**: you should see the 409 message.
+5. Narrow the window to phone width: the layout becomes one column.
+
+### Known limitations
+
+- No real-browser automated tests yet; the component tests run in jsdom. Browser end-to-end tests (for example Playwright) are a Phase 7 candidate.
+- The prisma CLI audit findings above.
 
 ### Next task
 
-1. You: authorize the commit. Proposed message: `feat(api): add monthly summary with sql aggregates`.
-2. Then Phase 6 (React frontend), when you instruct. It will need a new dependency batch (Vite, React, test tooling) for your approval.
+1. Commit, merge and push (authorized).
+2. Phase 7 (production-style quality gate).

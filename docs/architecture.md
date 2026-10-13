@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3), the Transactions API (Phase 4) and the Summary API (Phase 5) are implemented: the backend MVP is complete. Sections are marked as they are implemented.
+> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3), the Transactions API (Phase 4), the Summary API (Phase 5) and the React frontend (Phase 6) are implemented. Sections are marked as they are implemented.
 
 ## Repository layout
 
@@ -8,7 +8,7 @@
 .
 ├── apps/
 │   ├── api/          # NestJS server (Phase 1, implemented)
-│   └── web/          # React + Vite client (Phase 6, planned)
+│   └── web/          # React + Vite client (Phase 6, implemented)
 ├── docs/             # requirements, architecture, API design, progress, ADRs
 ├── scripts/hooks/    # Claude Code hook scripts + their tests (Phase 0, implemented)
 ├── .claude/          # shared Claude Code settings (hooks, deny rules)
@@ -127,6 +127,42 @@ Each layer has one job:
 - **Prisma:** talks to the database.
 
 There is no generic repository layer or CQRS.
+
+## Web app (implemented, Phase 6)
+
+```
+apps/web/src/
+├── main.tsx, App.tsx      QueryClientProvider; header nav; hash router (#/dashboard …)
+├── api/
+│   ├── types.ts           response and request shapes (money is a string)
+│   ├── guards.ts          runtime checks for every response
+│   ├── client.ts          typed fetch → ApiError(status, messages)
+│   └── queries.ts         TanStack Query hooks + which keys each mutation invalidates
+├── lib/                   money.ts (formatInr, isMoneyInput), dates.ts (UTC-safe labels), aria.ts
+├── components/            StatusMessage (loading/empty/error/success), ConfirmButton, fields, MonthPicker
+└── features/              dashboard/, transactions/ (view, form), categories/
+```
+
+### Browser → API flow (adding a transaction)
+
+```
+TransactionForm submit
+  → client checks (same rules as the API: amount string, real date, category chosen)  → field errors
+  → useCreateTransaction().mutate()        button disabled while pending: no double submit
+  → api.createTransaction()                POST http://localhost:3000/api/v1/transactions  (CORS: localhost:5173)
+  ← 201 + body checked by isTransaction()  or 400/409 → ApiError → message shown in the form
+  → invalidate ['transactions'], ['summary']
+  → the table and dashboard refetch; the filters stay as they were
+```
+
+- **Server state lives in TanStack Query, UI state in components.** Filters, the row being edited and confirm buttons are plain `useState`. Data from the API is never copied into component state.
+- **The API stays the authority.** Client checks only give faster feedback; every rule is enforced again by the server, and its messages are shown.
+- **Accessibility:**
+  - every input has a `<label>`, and errors are linked with `aria-describedby` and `aria-invalid`;
+  - status and error messages use `role="status"` and `role="alert"`;
+  - deletes need a second, explicit click;
+  - the nav marks the current view with `aria-current="page"`.
+- **Decisions:** [ADR 0005](adr/0005-frontend-stack.md).
 
 ## Database layer (implemented, Phase 2)
 

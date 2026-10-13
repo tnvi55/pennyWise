@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 5 (Summary API): the backend MVP is complete. Categories, income/expense transactions and a monthly summary are available over HTTP, backed by PostgreSQL in Docker. The React frontend comes next. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 6 (React frontend): the MVP runs end to end. A browser app (dashboard, transactions, categories) talks to the NestJS API, which stores data in PostgreSQL in Docker. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -83,10 +83,24 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 - Transactions: `GET/POST /api/v1/transactions` (`?month=YYYY-MM&type=&categoryId=&page=&pageSize=`), `GET/PATCH/DELETE /api/v1/transactions/:id`. Amounts are strings such as `"125.50"`, and dates are `YYYY-MM-DD`. See [api-design.md](docs/api-design.md#transactions-implemented-phase-4).
 - Summary: `GET /api/v1/summary?month=YYYY-MM` returns income, expenses, net and expenses by category for that month. See [api-design.md](docs/api-design.md#summary-implemented-phase-5).
 
+## Run the web app
+
+Start Docker Desktop, then run the API and the web app in two terminals:
+
+```bash
+npm run dev:api      # http://localhost:3000/api/v1
+npm run dev:web      # http://localhost:5173
+```
+
+- Open **http://localhost:5173**. Use `localhost`, not `127.0.0.1`: the API's CORS allows exactly `CORS_ORIGIN=http://localhost:5173`.
+- Views: **Dashboard** (`#/dashboard`: monthly totals and expense breakdown), **Transactions** (`#/transactions`: filter, add, edit, delete) and **Categories** (`#/categories`: add, rename, delete).
+- The app calls `VITE_API_BASE_URL` from the root `.env`. Every `VITE_` variable ends up in public browser code, so never put secrets there.
+- `npm run build -w @pennywise/web` writes a static build to `apps/web/dist`.
+
 ## Tests
 
 ```bash
-npm test             # unit tests: no database needed
+npm test             # API unit tests and web component tests (Vitest): no database needed
 npm run test:e2e     # end-to-end tests against a real, disposable PostgreSQL test database
 ```
 
@@ -103,6 +117,7 @@ npm run test:e2e     # end-to-end tests against a real, disposable PostgreSQL te
 | `npm run format:check` | Fail if any file is not formatted (used in CI)                |
 | `npm run test:hooks`   | Run Node's built-in test runner on `scripts/hooks/*.test.mjs` |
 | `npm run dev:api`      | Start the API in watch mode                                   |
+| `npm run dev:web`      | Start the web app (Vite) on http://localhost:5173             |
 | `npm run lint`         | ESLint in every workspace                                     |
 | `npm run typecheck`    | `tsc --noEmit` in every workspace                             |
 | `npm test`             | Unit tests (Jest) in every workspace                          |
@@ -136,7 +151,7 @@ The project's shared settings live in [.claude/settings.json](.claude/settings.j
 
 ```
 apps/api/      # NestJS API (Phase 1); prisma/ holds schema, migrations and seed (Phase 2)
-apps/web/      # React client (Phase 6, not created yet)
+apps/web/      # React + Vite browser app (Phase 6)
 compose.yaml   # local PostgreSQL in Docker (Phase 2)
 docs/          # requirements, architecture, API design, progress, ADRs
 scripts/hooks/ # Claude Code hook scripts and tests
@@ -153,4 +168,5 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [ADR 0002: Node 24 and Jest with ESM-only NestJS](docs/adr/0002-node-24-and-jest-esm.md)
 - [ADR 0003: Prisma 7 and PostgreSQL 18](docs/adr/0003-prisma-7-and-postgres-18.md)
 - [ADR 0004: Money and dates at the API boundary](docs/adr/0004-money-and-dates-at-the-api-boundary.md)
+- [ADR 0005: Frontend stack](docs/adr/0005-frontend-stack.md)
 - [Implementation plan](plan.md) and [Claude instructions](CLAUDE.md)
