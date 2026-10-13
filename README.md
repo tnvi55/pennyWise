@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 1 (backend skeleton): the API starts and serves `GET /api/v1/health` and Swagger. No database yet. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 2 (PostgreSQL + Prisma): the database runs in Docker, the schema is managed by Prisma migrations and a repeatable seed provides sample data. No category or transaction endpoints yet. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -24,6 +24,50 @@ npm run test:hooks      # test the Claude Code hook scripts
 
 Copy `.env.example` to `.env` and keep the placeholder values for local work. Never commit `.env`.
 
+`npm ci` also runs `prisma generate`, which writes the typed Prisma client to `apps/api/src/generated/prisma` (gitignored).
+
+## Database (PostgreSQL in Docker)
+
+Start Docker Desktop first. Compose reads `POSTGRES_*` from the root `.env`.
+
+```bash
+docker compose up -d            # start PostgreSQL in the background
+docker compose ps               # STATUS should show "healthy"
+docker compose logs postgres    # server logs
+docker compose down             # stop and remove the container; data is kept in the volume
+```
+
+> ⚠️ **`docker compose down -v` deletes the `pennywise_pgdata` volume, which holds all your local data.** Use plain `down`.
+
+Then create the tables and add sample data:
+
+```bash
+npm run db:migrate   # apply migrations in prisma/migrations (creates the database tables)
+npm run db:seed      # insert synthetic categories and transactions; safe to run again
+```
+
+- `db:migrate` runs `prisma migrate dev`. It also creates a new migration if you changed `schema.prisma`; review the generated SQL before committing it.
+- `db:deploy` runs `prisma migrate deploy`, which only applies committed migrations (CI and shared environments).
+- The seed never deletes rows, and re-running it doesn't create duplicates.
+
+### Connect a GUI (Beekeeper Studio or pgAdmin)
+
+Use the same values as `DATABASE_URL` in `.env`, so the GUI sees exactly the database Prisma uses:
+
+| Field    | Value                                    |
+| -------- | ---------------------------------------- |
+| Host     | `127.0.0.1`                              |
+| Port     | `POSTGRES_PORT` (default `5432`)         |
+| Database | `POSTGRES_DB` (default `pennywise_dev`)  |
+| User     | `POSTGRES_USER` (default `pennywise`)    |
+| Password | `POSTGRES_PASSWORD` from your `.env`     |
+| SSL      | off / `disable` (local development only) |
+
+- **Beekeeper Studio:** New connection → PostgreSQL → fill in the fields → Test → Connect. The tables are under `public`.
+- **pgAdmin:** right-click Servers → Register → Server. Name it `PennyWise`, then fill in the Connection tab (Host name/address, Port, Maintenance database, Username, Password) and set SSL mode to `disable` on the Parameters tab.
+
+Try the queries in [docs/sql-basics.md](docs/sql-basics.md).
+
 ## Run the API
 
 ```bash
@@ -33,7 +77,8 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 - Health check: http://localhost:3000/api/v1/health returns `{"status":"ok","timestamp":"<ISO 8601 UTC time>"}`.
 - Swagger UI: http://localhost:3000/api/docs (raw OpenAPI JSON at `/api/docs-json`).
 - The server binds to `127.0.0.1` only, and CORS allows only `CORS_ORIGIN`.
-- An invalid `NODE_ENV`, `PORT` or `CORS_ORIGIN` stops startup with a list of what is wrong.
+- An invalid `NODE_ENV`, `PORT`, `CORS_ORIGIN` or `DATABASE_URL` stops startup with a list of what is wrong.
+- The API starts even while PostgreSQL is down; Prisma connects on the first database query.
 
 ## Scripts
 
@@ -48,6 +93,10 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 | `npm test`             | Unit tests (Jest) in every workspace                          |
 | `npm run test:e2e`     | API end-to-end tests (Jest + Supertest)                       |
 | `npm run build`        | Production build of every workspace                           |
+| `npm run db:migrate`   | Apply (and, after schema changes, create) Prisma migrations   |
+| `npm run db:deploy`    | Apply committed migrations only                               |
+| `npm run db:seed`      | Insert synthetic development data (repeatable)                |
+| `npm run db:validate`  | Check `schema.prisma` (used in CI)                            |
 
 Jest runs with `node --experimental-vm-modules` because NestJS 12 packages are ESM-only; see [ADR 0002](docs/adr/0002-node-24-and-jest-esm.md). The resulting `ExperimentalWarning` in test output is expected.
 
@@ -71,8 +120,9 @@ The project's shared settings live in [.claude/settings.json](.claude/settings.j
 ## Layout
 
 ```
-apps/api/      # NestJS API (Phase 1)
+apps/api/      # NestJS API (Phase 1); prisma/ holds schema, migrations and seed (Phase 2)
 apps/web/      # React client (Phase 6, not created yet)
+compose.yaml   # local PostgreSQL in Docker (Phase 2)
 docs/          # requirements, architecture, API design, progress, ADRs
 scripts/hooks/ # Claude Code hook scripts and tests
 ```
@@ -84,5 +134,7 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [API design](docs/api-design.md)
 - [Progress](docs/progress.md)
 - [ADR 0001: monorepo and architecture](docs/adr/0001-monorepo-and-architecture.md)
+- [SQL basics with PennyWise](docs/sql-basics.md)
 - [ADR 0002: Node 24 and Jest with ESM-only NestJS](docs/adr/0002-node-24-and-jest-esm.md)
+- [ADR 0003: Prisma 7 and PostgreSQL 18](docs/adr/0003-prisma-7-and-postgres-18.md)
 - [Implementation plan](plan.md) and [Claude instructions](CLAUDE.md)

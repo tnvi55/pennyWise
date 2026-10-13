@@ -1,0 +1,39 @@
+# Local development database for PennyWise. Only PostgreSQL runs in Docker;
+# the API and web app run directly on the host with Node.js.
+#
+# Compose reads POSTGRES_* from the repository-root .env file (copy .env.example).
+#   docker compose up -d          start in the background
+#   docker compose ps             status and health
+#   docker compose logs postgres  server logs
+#   docker compose down           stop and remove the container; the data volume is kept
+# WARNING: `docker compose down -v` also deletes the pennywise_pgdata volume, i.e. all local data.
+
+name: pennywise
+
+services:
+  postgres:
+    # Official image, pinned to an exact minor version so every machine runs the same server.
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      # Published on 127.0.0.1 only: reachable from this machine, not from the network.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # PostgreSQL 18+ images keep data under /var/lib/postgresql/<major>/docker,
+      # so the volume is mounted one level up from the older /var/lib/postgresql/data.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      # $$ passes a literal $ through Compose, so the variables expand inside the container.
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:
+    name: pennywise_pgdata

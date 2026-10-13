@@ -35,6 +35,29 @@ class IsSingleHttpOrigin implements ValidatorConstraintInterface {
   }
 }
 
+/**
+ * Accepts a PostgreSQL connection URL such as
+ * `postgresql://user:password@127.0.0.1:5432/pennywise_dev?schema=public`.
+ * The message never echoes the value, because it contains the database password.
+ */
+@ValidatorConstraint({ name: 'isPostgresUrl' })
+class IsPostgresUrl implements ValidatorConstraintInterface {
+  validate(value: unknown): boolean {
+    if (typeof value !== 'string') return false;
+    try {
+      const url = new URL(value);
+      const isPostgres = url.protocol === 'postgresql:' || url.protocol === 'postgres:';
+      return isPostgres && url.hostname !== '' && url.pathname.length > 1;
+    } catch {
+      return false;
+    }
+  }
+
+  defaultMessage(args: ValidationArguments): string {
+    return `${args.property} must be a postgresql:// URL with a host and database name`;
+  }
+}
+
 /** Every environment variable the API reads. Validated once at startup. */
 export class EnvironmentVariables {
   @IsIn(NODE_ENVIRONMENTS)
@@ -49,9 +72,13 @@ export class EnvironmentVariables {
   @IsString()
   @Validate(IsSingleHttpOrigin)
   CORS_ORIGIN!: string;
+
+  @IsString()
+  @Validate(IsPostgresUrl)
+  DATABASE_URL!: string;
 }
 
-const ENV_KEYS = ['NODE_ENV', 'PORT', 'CORS_ORIGIN'] as const;
+const ENV_KEYS = ['NODE_ENV', 'PORT', 'CORS_ORIGIN', 'DATABASE_URL'] as const;
 
 /**
  * Used by ConfigModule.forRoot({ validate }). Picks the variables declared above from

@@ -19,7 +19,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w @pennywise/api",
+    "db:deploy": "npm run db:deploy -w @pennywise/api",
+    "db:seed": "npm run db:seed -w @pennywise/api",
+    "db:validate": "npm run db:validate -w @pennywise/api"
   },
   "devDependencies": {
     "prettier": "3.9.9"

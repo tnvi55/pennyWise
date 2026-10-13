@@ -10,3 +10,5 @@ import 'reflect-metadata';
 process.env.NODE_ENV ??= 'test';
 process.env.CORS_ORIGIN ??= 'http://localhost:5173';
 process.env.PORT ??= '3000';
+// Never connected to by the current tests; a real test database arrives in Phase 3.
+process.env.DATABASE_URL ??= 'postgresql://test:test@127.0.0.1:5432/pennywise_unused?schema=public';

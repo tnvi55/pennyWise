@@ -7,6 +7,9 @@ build/
 coverage/
 *.tsbuildinfo
 
+# Generated Prisma client (rebuilt by `prisma generate`, which runs on npm install)
+apps/api/src/generated/
+
 # Environment files: real values never go into Git.
 .env
 .env.*

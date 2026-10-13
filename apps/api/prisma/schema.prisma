@@ -1,0 +1,57 @@
+// PennyWise database schema. Prisma turns this file into SQL migrations
+// (prisma/migrations) and a typed client (src/generated/prisma).
+// The connection URL lives in prisma.config.ts, not here (Prisma 7).
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  // The Nest build is CommonJS, so the generated client is too.
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id           String        @id @default(uuid()) @db.Uuid
+  /// Trimmed, 1–80 characters. A CHECK constraint in the migration rejects blank names.
+  name         String        @db.VarChar(80)
+  /// Immutable after creation (enforced by the service in Phase 3).
+  type         CategoryType
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  transactions Transaction[]
+
+  // The same label may exist once per type, e.g. "Other" for INCOME and for EXPENSE.
+  @@unique([name, type])
+  @@map("categories")
+}
+
+model Transaction {
+  id         String       @id @default(uuid()) @db.Uuid
+  /// Must equal the category's type (enforced by the service in Phase 4).
+  type       CategoryType
+  /// Strictly positive; a CHECK constraint in the migration enforces amount > 0.
+  amount     Decimal      @db.Decimal(12, 2)
+  /// Calendar date only (PostgreSQL DATE): no time and no timezone.
+  date       DateTime     @db.Date
+  note       String?      @db.VarChar(250)
+  categoryId String       @map("category_id") @db.Uuid
+  // Restrict: PostgreSQL refuses to delete a category that transactions still reference.
+  category   Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Speeds up "transactions in this category" and the referenced-category check on delete.
+  @@index([categoryId])
+  // Matches the month filter and the stable list order (date, createdAt, id - all descending).
+  @@index([date(sort: Desc), createdAt(sort: Desc), id(sort: Desc)])
+  @@map("transactions")
+}
