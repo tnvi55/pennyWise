@@ -6,8 +6,8 @@
 | 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green) |
 | 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green) |
 | 3     | Categories API           | Complete (commit 39e999b on main, CI green) |
-| 4     | Transactions API         | Implemented, verified; awaiting commit      |
-| 5     | Summary API              | Not started                                 |
+| 4     | Transactions API         | Complete (commit 6d5ae87 on main, CI green) |
+| 5     | Summary API              | Implemented, verified; awaiting commit      |
 | 6     | React frontend           | Not started                                 |
 | 7     | Production-style quality | Not started                                 |
 
@@ -308,7 +308,7 @@ The e2e runs used a throwaway `postgres:18.6` container on `127.0.0.1:5440`, set
 
 ## Phase 4: Transactions API
 
-Branch: `feature/transactions-api` (from `main` at `39e999b`). Not committed. No new dependencies. Decisions: [ADR 0004](adr/0004-money-and-dates-at-the-api-boundary.md).
+Branch: `feature/transactions-api`, committed as `6d5ae87` and fast-forwarded into `main`. GitHub Actions run 38414082902 succeeded, including the real-Postgres e2e tests. No new dependencies. Decisions: [ADR 0004](adr/0004-money-and-dates-at-the-api-boundary.md).
 
 ### Completed scope
 
@@ -352,9 +352,53 @@ Branch: `feature/transactions-api` (from `main` at `39e999b`). Not committed. No
 ### Pending manual verification
 
 - Optional: try the transaction endpoints in Swagger (`npm run dev:api`, then http://localhost:3000/api/docs).
-- CI on GitHub runs after a push to `main` or a PR, with your authorization.
+
+## Phase 5: Summary API
+
+Branch: `feature/summary-api` (from `main` at `6d5ae87`). Not committed. No new dependencies. With this phase the backend MVP is complete.
+
+### Completed scope
+
+- `src/summary/`: module, controller and service. DTOs: `SummaryQueryDto` (required `month`, using the existing `@IsMonth()`) and `SummaryResponseDto`.
+- `GET /api/v1/summary?month=YYYY-MM` returns `{ month, currency: "INR", income, expenses, net, expensesByCategory[] }`.
+- Two parameterized `$queryRaw` queries in one `$transaction`:
+  - totals with `sum(amount) FILTER (WHERE type = …)`, `COALESCE(…, 0)` for empty months, and `net` computed in SQL;
+  - expenses by category with `JOIN` + `GROUP BY`, sorted by amount desc, then name, then id.
+
+  Every result is `round(…, 2)::text`, so there are no JS numbers anywhere.
+
+- Month bounds are passed as `'YYYY-MM-DD'` strings cast to `::date`, avoiding a `DATE` vs `timestamptz` timezone comparison.
+- Runtime validation of raw SQL rows (strings, money format). A malformed row is a server error, so it becomes a generic 500.
+- Docs: summary contract in `api-design.md`, request flow in `architecture.md`, `FILTER`/`COALESCE` section in `sql-basics.md` (output checked against the dev DB), README.
+
+### Verification (2026-10-13, Node 24.21.0, PostgreSQL 18.6, your `.env` and `pennywise_test`)
+
+| Command                 | Result                                                                                                                                                                                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run format:check`  | exit 0                                                                                                                                                                                                                                                                                                                                       |
+| `npm run test:hooks`    | exit 0; 73 pass                                                                                                                                                                                                                                                                                                                              |
+| `npm run lint`          | exit 0 (one untyped mock in the new unit test fixed first)                                                                                                                                                                                                                                                                                   |
+| `npm run typecheck`     | exit 0                                                                                                                                                                                                                                                                                                                                       |
+| `npm test`              | exit 0; 7 suites, 152 tests (11 new summary-service cases: mapping, December bounds as parameters, negative net, malformed rows)                                                                                                                                                                                                             |
+| `npm run test:e2e`      | exit 0; 5 suites, 149 tests. 16 new: empty month; the September seed recreated (97500.00 / 32105.55 / 65394.45 plus the breakdown order); only expense categories; negative net; 0.10 + 0.20 = 0.30; 19999999999.98 without overflow; month boundaries; December rollover; ties sorted by name; 25 rows beyond one list page; 400s; OpenAPI. |
+| Mutation check          | changing `date < to` to `date <= to` made 2 e2e tests fail (boundaries, December); the file was restored                                                                                                                                                                                                                                     |
+| `npm run build`         | exit 0                                                                                                                                                                                                                                                                                                                                       |
+| Dev DB before and after | 9 categories, 15 transactions                                                                                                                                                                                                                                                                                                                |
+
+#### Live API check against the dev database (`node dist/main.js`, port 3001)
+
+- `?month=2026-09` → income 97500.00, expenses 32105.55, net 65394.45. Breakdown: Rent 22000.00, Groceries 6325.95, Utilities 1899.50, Eating out 1240.10, Transport 640.00. This matches your pgAdmin result from Phase 2.
+- `?month=2026-10` → 86500.00 / 23450.29 / 63049.71. Breakdown: Rent 22000.00, Other 999.99, Transport 450.00, Groceries 0.30.
+- `?month=2025-01` → 0.00 / 0.00 / 0.00 and `[]`.
+- `?month=2026-13` → 400, and no `month` → 400.
+- `/api/docs-json` lists `/api/v1/summary`.
+
+### Pending manual verification
+
+- Optional: open Swagger (`npm run dev:api`, then http://localhost:3000/api/docs) and run `GET /summary` for `2026-10`.
+- CI on GitHub runs after a push to `main`, with your authorization.
 
 ### Next task
 
-1. You: authorize the commit. Proposed message: `feat(api): add transactions CRUD with filters, pagination and merged-patch validation`.
-2. Then Phase 5 (Summary API), when you instruct.
+1. You: authorize the commit. Proposed message: `feat(api): add monthly summary with sql aggregates`.
+2. Then Phase 6 (React frontend), when you instruct. It will need a new dependency batch (Vite, React, test tooling) for your approval.

@@ -1,6 +1,6 @@
 # API design
 
-> Status: **contract**. Implemented: `GET /health` (Phase 1), the category endpoints (Phase 3) and the transaction endpoints (Phase 4). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
+> Status: **contract**. Implemented: every endpoint. `GET /health` (Phase 1), categories (Phase 3), transactions (Phase 4) and summary (Phase 5). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
 
 Base path: `/api/v1`. OpenAPI UI: `/api/docs`; OpenAPI JSON: `/api/docs-json` (Phase 1, implemented).
 
@@ -226,3 +226,33 @@ Send any subset of `type`, `amount`, `date`, `note` and `categoryId`. `200` retu
 ### `DELETE /api/v1/transactions/:id`
 
 `204` with no body. Malformed id → 400; unknown id → 404.
+
+## Summary (implemented, Phase 5)
+
+### `GET /api/v1/summary?month=YYYY-MM`
+
+`month` is required. Any other query parameter → 400.
+
+`GET /api/v1/summary?month=2026-10` (with the seed data) → `200`:
+
+```json
+{
+  "month": "2026-10",
+  "currency": "INR",
+  "income": "86500.00",
+  "expenses": "23450.29",
+  "net": "63049.71",
+  "expensesByCategory": [
+    { "categoryId": "…", "categoryName": "Rent", "amount": "22000.00" },
+    { "categoryId": "…", "categoryName": "Other", "amount": "999.99" },
+    { "categoryId": "…", "categoryName": "Transport", "amount": "450.00" },
+    { "categoryId": "…", "categoryName": "Groceries", "amount": "0.30" }
+  ]
+}
+```
+
+- **Totals:** every amount is a fixed two-decimal string. A month with no transactions → `"0.00"`, `"0.00"`, `"0.00"` and `[]`.
+- **`net`** = income − expenses, and may be negative (`"-1500.50"`).
+- **Coverage:** every transaction with `date` in `[first day, first day of next month)` counts, independent of the list's pagination.
+- **`expensesByCategory`:** only categories with **expense** transactions that month. Income categories and unused categories are absent. Sorted by amount desc, then name, then id.
+- **Errors:** missing `month`, `2026-13`, `2026-10-01` or `2026-1` → 400 `["month must be a month in YYYY-MM format, e.g. \"2026-10\""]`.

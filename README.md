@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 4 (Transactions API): categories and income/expense transactions can be managed over HTTP (filter by month, type and category; paginated), backed by PostgreSQL in Docker. The monthly summary comes next. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 5 (Summary API): the backend MVP is complete. Categories, income/expense transactions and a monthly summary are available over HTTP, backed by PostgreSQL in Docker. The React frontend comes next. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -81,6 +81,7 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 - The API starts even while PostgreSQL is down; Prisma connects on the first database query.
 - Categories: `GET/POST /api/v1/categories`, `PATCH/DELETE /api/v1/categories/:id`. Examples are in [docs/api-design.md](docs/api-design.md#categories-implemented-phase-3); you can also try them in Swagger.
 - Transactions: `GET/POST /api/v1/transactions` (`?month=YYYY-MM&type=&categoryId=&page=&pageSize=`), `GET/PATCH/DELETE /api/v1/transactions/:id`. Amounts are strings such as `"125.50"`, and dates are `YYYY-MM-DD`. See [api-design.md](docs/api-design.md#transactions-implemented-phase-4).
+- Summary: `GET /api/v1/summary?month=YYYY-MM` returns income, expenses, net and expenses by category for that month. See [api-design.md](docs/api-design.md#summary-implemented-phase-5).
 
 ## Tests
 

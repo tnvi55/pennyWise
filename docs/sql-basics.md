@@ -115,6 +115,31 @@ ORDER BY spent DESC;
 
 **`GROUP BY`** makes one output row per group, and **`sum()`** adds up the rows in each group. PostgreSQL adds `DECIMAL` values exactly: the two "Decimal check" rows sum to exactly `0.30`, where JavaScript's `0.1 + 0.2` gives `0.30000000000000004`. That's why the Summary API (Phase 5) lets the database do the arithmetic.
 
+### 4b. The Summary API's query: `FILTER` and `COALESCE`
+
+`GET /api/v1/summary` computes all three totals in one pass over the month's rows:
+
+```sql
+SELECT
+  round(COALESCE(sum(amount) FILTER (WHERE type = 'INCOME'), 0), 2)::text  AS income,
+  round(COALESCE(sum(amount) FILTER (WHERE type = 'EXPENSE'), 0), 2)::text AS expenses,
+  round(COALESCE(sum(amount) FILTER (WHERE type = 'INCOME'), 0)
+      - COALESCE(sum(amount) FILTER (WHERE type = 'EXPENSE'), 0), 2)::text AS net
+FROM transactions
+WHERE date >= DATE '2026-10-01' AND date < DATE '2026-11-01';
+```
+
+```
+  income  | expenses |   net
+----------+----------+----------
+ 86500.00 | 23450.29 | 63049.71
+```
+
+- **`FILTER (WHERE …)`** limits one aggregate to some rows, so one query gives both the income and the expense sum.
+- **`sum()` of no rows is `NULL`, not 0.** `COALESCE(x, 0)` replaces `NULL` with 0, so an empty month shows `0.00`. Try it with `DATE '2025-01-01'`.
+- **`round(…, 2)::text`** fixes two decimals and returns text, so the API passes `"86500.00"` along without JavaScript ever turning it into a float.
+- In the API, the dates are bound parameters (`${from}::date`), not literals.
+
 ## 5. Constraints: rules the database enforces
 
 | Constraint                      | Rule                               | Try it (inside `BEGIN; … ROLLBACK;`)                      |

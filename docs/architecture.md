@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3) and the Transactions API (Phase 4) are implemented. Sections are marked as they are implemented.
+> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3), the Transactions API (Phase 4) and the Summary API (Phase 5) are implemented: the backend MVP is complete. Sections are marked as they are implemented.
 
 ## Repository layout
 
@@ -32,6 +32,7 @@ apps/api/src/
 ├── common/validation/       # money, calendar-date, month validators (Phase 4)
 ├── categories/              # CategoriesModule → Controller → Service, DTOs (Phase 3)
 ├── transactions/            # TransactionsModule → Controller → Service, DTOs (Phase 4)
+├── summary/                 # SummaryModule → Controller → Service (raw SQL aggregates) (Phase 5)
 ├── prisma/                  # PrismaModule (global) + PrismaService (Phase 2)
 ├── generated/prisma/        # typed client from `prisma generate` (gitignored)
 └── health/                  # HealthModule → HealthController → HealthService
@@ -95,6 +96,26 @@ PATCH /api/v1/transactions/:id   { "type": "INCOME" }
 - **Money never touches a JS number.** The amount arrives as a string, Prisma stores it in `DECIMAL(12,2)`, and it comes back as a `Decimal` that is formatted with `toFixed(2)`. See [ADR 0004](adr/0004-money-and-dates-at-the-api-boundary.md).
 - **Dates never touch a timezone.** `'2026-10-31'` becomes `2026-10-31T00:00:00Z`, Prisma writes it to a `DATE` column as that day, and `toISOString().slice(0, 10)` gives the same string back.
 - **Why validate the merged record?** Checking only the sent fields would let `{ "type": "INCOME" }` turn an expense in "Groceries" into an income in an expense category. The rule is about the whole row, so the service checks the whole row.
+
+## Request flow: summary (implemented, Phase 5)
+
+```
+GET /api/v1/summary?month=2026-10
+  → ValidationPipe          SummaryQueryDto: @IsMonth, required          → else 400
+  → SummaryController       HTTP only
+  → SummaryService          from = '2026-10-01', to = '2026-11-01' (strings, from monthRange)
+                            $transaction([
+                              $queryRaw totals:    sum(amount) FILTER (WHERE type = …), net
+                              $queryRaw breakdown: JOIN categories, GROUP BY, ORDER BY sum DESC
+                            ])
+                            runtime-check every row (strings, money format) → else 500
+  ← { month, currency: "INR", income, expenses, net, expensesByCategory }
+```
+
+- **PostgreSQL does the arithmetic.** `sum()` over `DECIMAL` is exact, and so is the subtraction for `net`. Each result is cast with `round(…, 2)::text`, so JavaScript only ever receives strings like `"63049.71"`, never a float.
+- **Parameterized raw SQL.** `$queryRaw` is a tagged template: `${from}` becomes a bound parameter, never pasted text. Raw SQL is used here because these aggregates (`FILTER`, `GROUP BY` with a join, `::text`) read more clearly as SQL than as Prisma calls.
+- **Dates as strings.** The bounds are passed as `'YYYY-MM-DD'` and cast to `::date`. A JS `Date` would arrive as `timestamptz`, and comparing it with a `DATE` column depends on the database session's timezone.
+- **Runtime checks.** Raw SQL results have no compile-time types, so the service checks every field before returning it.
 
 ## Layers
 

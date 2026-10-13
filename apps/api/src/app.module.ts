@@ -5,6 +5,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { validateEnv } from './config/env.validation';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { SummaryModule } from './summary/summary.module';
 import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { TransactionsModule } from './transactions/transactions.module';
     HealthModule,
     CategoriesModule,
     TransactionsModule,
+    SummaryModule,
   ],
 })
 export class AppModule {}
