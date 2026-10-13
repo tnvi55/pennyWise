@@ -1,6 +1,6 @@
 # API design
 
-> Status: **contract**. Implemented: `GET /health` (Phase 1) and the four category endpoints (Phase 3). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
+> Status: **contract**. Implemented: `GET /health` (Phase 1), the category endpoints (Phase 3) and the transaction endpoints (Phase 4). JSON request/response examples are added here before each feature phase (3–5) implements them. Source: [plan.md](../plan.md) sections 6 and 14.
 
 Base path: `/api/v1`. OpenAPI UI: `/api/docs`; OpenAPI JSON: `/api/docs-json` (Phase 1, implemented).
 
@@ -122,3 +122,107 @@ Example error body:
   "message": "Category is used by one or more transactions and cannot be deleted"
 }
 ```
+
+## Transactions (implemented, Phase 4)
+
+A transaction:
+
+```json
+{
+  "id": "79e9f7ed-34ba-43f1-8fdf-a9adfb2054af",
+  "type": "EXPENSE",
+  "amount": "42.50",
+  "date": "2026-10-12",
+  "note": "Weekly groceries",
+  "categoryId": "aa02f065-2218-4f3d-9929-bd5e14fc8bc0",
+  "category": { "id": "aa02f065-2218-4f3d-9929-bd5e14fc8bc0", "name": "Groceries" },
+  "createdAt": "2026-10-13T14:25:16.917Z",
+  "updatedAt": "2026-10-13T14:25:16.917Z"
+}
+```
+
+### Field rules
+
+| Field        | Rule                                                                                                    | Accepted                                      | Rejected (400)                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `type`       | `INCOME` or `EXPENSE`                                                                                   | `"EXPENSE"`                                   | `"TRANSFER"`, `"expense"`                                                                                                       |
+| `amount`     | JSON **string**, > 0, at most 2 decimals and `9999999999.99`; no sign, exponent, spaces or leading zero | `"0.01"`, `"5"`, `"125.5"`, `"9999999999.99"` | `125.5` (number), `"0"`, `"0.00"`, `"-5"`, `"+5"`, `"1e3"`, `"1.005"`, `"01.5"`, `" 5"`, `"10000000000.00"`                     |
+| `date`       | real calendar day, `YYYY-MM-DD`                                                                         | `"2026-10-31"`, `"2028-02-29"`                | `"2026-02-29"`, `"2026-04-31"`, `"2026-10-03T10:00:00Z"`, `"2026-1-3"`, `null`                                                  |
+| `note`       | optional, at most 250 characters, trimmed; empty → `null`                                               | `"Gift"`, `null`, omitted                     | 251 characters, a number                                                                                                        |
+| `categoryId` | UUID of an **existing** category **of the same type**                                                   |                                               | malformed UUID; unknown → `Category <id> does not exist`; mismatch → `Category "Rent" is EXPENSE but the transaction is INCOME` |
+
+- Output `amount` always has exactly 2 decimals (`"5"` is returned as `"5.00"`).
+- Output `date` is exactly the day that was sent; it is stored as a PostgreSQL `DATE`, with no time or timezone.
+
+### `GET /api/v1/transactions`
+
+| Query        | Default | Rule                                                               |
+| ------------ | ------- | ------------------------------------------------------------------ |
+| `month`      | none    | `YYYY-MM`; the whole month, `[first day, first day of next month)` |
+| `type`       | none    | `INCOME` or `EXPENSE`                                              |
+| `categoryId` | none    | UUID; an unknown id simply matches nothing                         |
+| `page`       | 1       | integer ≥ 1                                                        |
+| `pageSize`   | 20      | integer from 1 to 100                                              |
+
+Any other query parameter → 400. Sorted by `date` desc, then `createdAt` desc, then `id` desc.
+
+`GET /api/v1/transactions?month=2026-10&pageSize=2` → `200`:
+
+```json
+{
+  "data": [
+    {
+      "id": "…",
+      "type": "EXPENSE",
+      "amount": "999.99",
+      "date": "2026-10-10",
+      "note": "Gift",
+      "…": "…"
+    },
+    {
+      "id": "…",
+      "type": "INCOME",
+      "amount": "1500.00",
+      "date": "2026-10-09",
+      "note": "Cashback",
+      "…": "…"
+    }
+  ],
+  "meta": { "page": 1, "pageSize": 2, "total": 7, "totalPages": 4 }
+}
+```
+
+With no matches: `{ "data": [], "meta": { "page": 1, "pageSize": 20, "total": 0, "totalPages": 0 } }`. A page past the end returns `data: []` with the real `total` and `totalPages`.
+
+### `POST /api/v1/transactions`
+
+```json
+{
+  "type": "EXPENSE",
+  "amount": "42.50",
+  "date": "2026-10-12",
+  "note": "Weekly groceries",
+  "categoryId": "…"
+}
+```
+
+`201` returns the created transaction.
+
+### `GET /api/v1/transactions/:id`
+
+`200` returns the transaction. Malformed id → 400; unknown id → 404 `Transaction <id> not found`.
+
+### `PATCH /api/v1/transactions/:id`
+
+Send any subset of `type`, `amount`, `date`, `note` and `categoryId`. `200` returns the updated transaction.
+
+- **The merged record is validated:** the existing values plus your changes must still have a category of the same type.
+  - `{ "type": "INCOME" }` on an expense in "Groceries" → 400 `Category "Groceries" is EXPENSE but the transaction is INCOME`.
+  - `{ "type": "INCOME", "categoryId": "<Salary>" }` → 200.
+- `{}` → 400 `Request body must contain at least one field`.
+- `null` for `type`, `amount`, `date` or `categoryId` → 400. `"note": null` clears the note.
+- Unknown fields (including `id`) → 400. An unknown id → 404.
+
+### `DELETE /api/v1/transactions/:id`
+
+`204` with no body. Malformed id → 400; unknown id → 404.

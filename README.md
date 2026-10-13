@@ -2,7 +2,7 @@
 
 A learning-first, single-user personal expense tracker built with React, NestJS, PostgreSQL and Prisma in strict TypeScript. It is local only, unauthenticated and INR only.
 
-> **Status:** Phase 3 (Categories API): categories can be listed, created, renamed and deleted over HTTP, backed by PostgreSQL in Docker. Transaction and summary endpoints come next. See [docs/progress.md](docs/progress.md).
+> **Status:** Phase 4 (Transactions API): categories and income/expense transactions can be managed over HTTP (filter by month, type and category; paginated), backed by PostgreSQL in Docker. The monthly summary comes next. See [docs/progress.md](docs/progress.md).
 
 ## Prerequisites
 
@@ -80,6 +80,7 @@ npm run dev:api         # NestJS in watch mode on http://localhost:3000
 - An invalid `NODE_ENV`, `PORT`, `CORS_ORIGIN` or `DATABASE_URL` stops startup with a list of what is wrong.
 - The API starts even while PostgreSQL is down; Prisma connects on the first database query.
 - Categories: `GET/POST /api/v1/categories`, `PATCH/DELETE /api/v1/categories/:id`. Examples are in [docs/api-design.md](docs/api-design.md#categories-implemented-phase-3); you can also try them in Swagger.
+- Transactions: `GET/POST /api/v1/transactions` (`?month=YYYY-MM&type=&categoryId=&page=&pageSize=`), `GET/PATCH/DELETE /api/v1/transactions/:id`. Amounts are strings such as `"125.50"`, and dates are `YYYY-MM-DD`. See [api-design.md](docs/api-design.md#transactions-implemented-phase-4).
 
 ## Tests
 
@@ -150,4 +151,5 @@ scripts/hooks/ # Claude Code hook scripts and tests
 - [SQL basics with PennyWise](docs/sql-basics.md)
 - [ADR 0002: Node 24 and Jest with ESM-only NestJS](docs/adr/0002-node-24-and-jest-esm.md)
 - [ADR 0003: Prisma 7 and PostgreSQL 18](docs/adr/0003-prisma-7-and-postgres-18.md)
+- [ADR 0004: Money and dates at the API boundary](docs/adr/0004-money-and-dates-at-the-api-boundary.md)
 - [Implementation plan](plan.md) and [Claude instructions](CLAUDE.md)

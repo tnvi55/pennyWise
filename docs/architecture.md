@@ -1,6 +1,6 @@
 # Architecture
 
-> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2) and the Categories API (Phase 3) are implemented. Sections are marked as they are implemented.
+> Status: repository tooling (Phase 0), the API skeleton (Phase 1), the database layer (Phase 2), the Categories API (Phase 3) and the Transactions API (Phase 4) are implemented. Sections are marked as they are implemented.
 
 ## Repository layout
 
@@ -29,7 +29,9 @@ apps/api/src/
 ├── config/env.validation.ts # NODE_ENV, PORT, CORS_ORIGIN, DATABASE_URL checked once at startup
 ├── common/dto/              # ErrorResponseDto, the documented error shape
 ├── common/filters/          # UnhandledExceptionFilter: generic 500 in the same shape (Phase 3)
+├── common/validation/       # money, calendar-date, month validators (Phase 4)
 ├── categories/              # CategoriesModule → Controller → Service, DTOs (Phase 3)
+├── transactions/            # TransactionsModule → Controller → Service, DTOs (Phase 4)
 ├── prisma/                  # PrismaModule (global) + PrismaService (Phase 2)
 ├── generated/prisma/        # typed client from `prisma generate` (gitignored)
 └── health/                  # HealthModule → HealthController → HealthService
@@ -67,17 +69,34 @@ PATCH /api/v1/categories/3f2b…   { "name": "  Food " }
   - Service unit tests mock `PrismaService` and check the error mapping.
   - e2e tests send real HTTP requests through `configureApp()` to a real PostgreSQL database (`pennywise_test`), guarded by `test/test-database.ts`.
 
-## Request flow (planned for transactions)
+## Request flow: transactions (implemented, Phase 4)
 
 ```
-Browser (React page)
-  → typed fetch client  GET /api/v1/transactions?month=2026-10
-  → NestJS: global ValidationPipe checks query DTO
-  → TransactionsController  (HTTP only: params in, status code out)
-  → TransactionsService     (business rules: category/type match, pagination)
-  → PrismaService           (typed, parameterized queries)
-  → PostgreSQL              (tables, constraints, Decimal and DATE columns)
+GET /api/v1/transactions?month=2026-10&page=2
+  → ValidationPipe               query → ListTransactionsQueryDto: @IsMonth, page/pageSize
+                                 converted to numbers and range-checked           → else 400
+  → TransactionsController       HTTP only
+  → TransactionsService.list     where = { date: monthRange('2026-10') = [10-01, 11-01) }
+                                 $transaction([findMany(order, skip, take), count])
+  ← { data: [...], meta: { page, pageSize, total, totalPages } }
+
+PATCH /api/v1/transactions/:id   { "type": "INCOME" }
+  → ParseUUIDPipe + ValidationPipe   fields optional, but null rejected for required ones
+  → TransactionsService.update   1. empty body?                       → 400
+                                 2. load existing row                 → 404 if missing
+                                 3. merged = existing + changes
+                                 4. category(merged.categoryId) exists and
+                                    has merged.type?                  → else 400
+                                 5. update only the sent fields
+  ← toTransactionResponse        amount: Decimal.toFixed(2), date: 'YYYY-MM-DD'
 ```
+
+- **Shared validators** (`src/common/validation/`): `money.ts`, `calendar-date.ts` and `month.ts` are pure functions plus class-validator decorators. They have their own boundary-case unit tests and will be reused by the Summary API.
+- **Money never touches a JS number.** The amount arrives as a string, Prisma stores it in `DECIMAL(12,2)`, and it comes back as a `Decimal` that is formatted with `toFixed(2)`. See [ADR 0004](adr/0004-money-and-dates-at-the-api-boundary.md).
+- **Dates never touch a timezone.** `'2026-10-31'` becomes `2026-10-31T00:00:00Z`, Prisma writes it to a `DATE` column as that day, and `toISOString().slice(0, 10)` gives the same string back.
+- **Why validate the merged record?** Checking only the sent fields would let `{ "type": "INCOME" }` turn an expense in "Groceries" into an income in an expense category. The rule is about the whole row, so the service checks the whole row.
+
+## Layers
 
 Each layer has one job:
 

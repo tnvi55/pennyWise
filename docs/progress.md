@@ -5,8 +5,8 @@
 | 0     | Repository and standards | Complete (commit 5e97bc8, CI green)         |
 | 1     | Backend skeleton         | Complete (commit c215d40 on main, CI green) |
 | 2     | PostgreSQL + Prisma      | Complete (commit d8aa3c6 on main, CI green) |
-| 3     | Categories API           | Implemented, verified; awaiting commit      |
-| 4     | Transactions API         | Not started                                 |
+| 3     | Categories API           | Complete (commit 39e999b on main, CI green) |
+| 4     | Transactions API         | Implemented, verified; awaiting commit      |
 | 5     | Summary API              | Not started                                 |
 | 6     | React frontend           | Not started                                 |
 | 7     | Production-style quality | Not started                                 |
@@ -243,7 +243,7 @@ Branch: `feature/postgres-prisma`, committed as `d8aa3c6` and fast-forwarded int
 
 ## Phase 3: Categories API
 
-Branch: `feature/categories-api` (from `main` at `d8aa3c6`). Not committed. No new dependencies.
+Branch: `feature/categories-api`, committed as `39e999b` and fast-forwarded into `main`. GitHub Actions run 38411484011 succeeded, including "API e2e tests (real PostgreSQL)" against the CI Postgres service. No new dependencies.
 
 ### Completed scope
 
@@ -305,9 +305,56 @@ The e2e runs used a throwaway `postgres:18.6` container on `127.0.0.1:5440`, set
 
 - Done (2026-10-13): `TEST_DATABASE_URL` added to your `.env`. `npm run test:e2e` on your machine against local `pennywise_test`: 3 suites, 60 tests pass. The dev DB still has 9 categories and 15 transactions.
 - Optional: try the category endpoints in Swagger (`npm run dev:api`, then http://localhost:3000/api/docs).
-- CI on GitHub, including the new Postgres service, runs after a push to `main` or a PR.
+
+## Phase 4: Transactions API
+
+Branch: `feature/transactions-api` (from `main` at `39e999b`). Not committed. No new dependencies. Decisions: [ADR 0004](adr/0004-money-and-dates-at-the-api-boundary.md).
+
+### Completed scope
+
+- `src/common/validation/`: pure functions plus class-validator decorators, reused by Phase 5:
+  - `money.ts`: `isMoneyString` / `@IsMoneyString()`;
+  - `calendar-date.ts`: `isCalendarDate`, `toUtcDate`, `toDateString` / `@IsCalendarDate()`;
+  - `month.ts`: `isMonth`, `monthRange` / `@IsMonth()`.
+- `src/transactions/`: module, controller (HTTP only) and service. DTOs: create, update, list query, response (with `category {id, name}`) and paginated response.
+- Endpoints:
+  - `GET /transactions`: `month`, `type` and `categoryId` filters; `page` (≥1, default 1) and `pageSize` (1–100, default 20); sorted `date desc, createdAt desc, id desc`; `findMany` and `count` in one `$transaction`; `totalPages` is 0 when empty;
+  - `POST` → 201;
+  - `GET /:id`;
+  - `PATCH /:id`: partial update; empty body → 400; `null` rejected for required fields; `note: null` clears; the **merged** type/category is validated;
+  - `DELETE /:id` → 204.
+- Category rules: the category must exist (400) and match the transaction type (400). A category deleted mid-request (FK P2003) → 400; a transaction deleted mid-request (P2025) → 404.
+- Docs: transactions contract and field-rule table in `api-design.md`; request flow and merged-PATCH explanation in `architecture.md`; ADR 0004; README endpoint line.
+
+### Verification (2026-10-13, Node 24.21.0, PostgreSQL 18.6, your `.env` and `pennywise_test`)
+
+| Command                 | Result                                                                                                                                                                                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run format:check`  | exit 0                                                                                                                                                                                                                                                        |
+| `npm run test:hooks`    | exit 0; 73 pass                                                                                                                                                                                                                                               |
+| `npm run lint`          | exit 0                                                                                                                                                                                                                                                        |
+| `npm run typecheck`     | exit 0 (one type error, possibly-`undefined` validation args, fixed first)                                                                                                                                                                                    |
+| `npm test`              | exit 0; 6 suites, 141 tests (80 validator cases, 19 transaction-service cases)                                                                                                                                                                                |
+| `npm run test:e2e`      | exit 0; 4 suites, 133 tests (73 new: money/date/note/type boundaries, no date drift via raw SQL, exact `0.10 + 0.20 = 0.30` in SQL, month boundaries and December rollover, filters, stable sort, pagination and meta, merged PATCH, nulls, 404/400, OpenAPI) |
+| Mutation check          | disabling the merged type/category check made exactly 1 e2e test fail ("rejects changing only the type…"); the file was restored                                                                                                                              |
+| `npm run build`         | exit 0                                                                                                                                                                                                                                                        |
+| Dev DB before and after | 9 categories, 15 transactions                                                                                                                                                                                                                                 |
+
+#### Live API check against the dev database (`node dist/main.js`, port 3001)
+
+- `?month=2026-10` → 7 seed rows, newest first. `"0.10"` and `"0.20"` came back as exact strings. Meta: `{ page 1, pageSize 20, total 7, totalPages 1 }`.
+- `?pageSize=6&page=2` → `{ total 15, totalPages 3 }`, rows 7–12 by date.
+- `POST "42.5"` → 201 with `"42.50"` and `"date": "2026-10-12"`.
+- `PATCH { type: INCOME }` → 400 merged mismatch. `PATCH { type: INCOME, categoryId: Salary, note: null }` → 200.
+- `amount: 12.5` (number) → 400. `date: 2026-02-30` → 400.
+- `DELETE` of the scratch transaction → 204. The total went back to 15.
+
+### Pending manual verification
+
+- Optional: try the transaction endpoints in Swagger (`npm run dev:api`, then http://localhost:3000/api/docs).
+- CI on GitHub runs after a push to `main` or a PR, with your authorization.
 
 ### Next task
 
-1. Commit authorized. Proposed message: `feat(api): add categories CRUD with real-postgres e2e tests`.
-2. Then Phase 4 (Transactions API), when you instruct.
+1. You: authorize the commit. Proposed message: `feat(api): add transactions CRUD with filters, pagination and merged-patch validation`.
+2. Then Phase 5 (Summary API), when you instruct.
